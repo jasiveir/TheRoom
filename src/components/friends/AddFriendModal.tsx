@@ -1,0 +1,218 @@
+import React, { useState } from 'react';
+import { X, Search, UserPlus, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { findUserByFriendCode, sendFriendRequest } from '../../lib/friendService';
+import { useAuth } from '../../context/AuthContext';
+import { UserProfile } from '../../types';
+
+interface AddFriendModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose }) => {
+  const { userProfile } = useAuth();
+  const [friendCodeInput, setFriendCodeInput] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [searchResult, setSearchResult] = useState<UserProfile | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [requestSending, setRequestSending] = useState(false);
+  const [requestSent, setRequestSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSearchResult(null);
+    setRequestSent(false);
+
+    const cleanCode = friendCodeInput.trim().toUpperCase();
+    if (!cleanCode) {
+      setError('Please enter a valid Friend Code (e.g. PC-8F2X-LQ71 or ADMIN-0001).');
+      return;
+    }
+
+    setSearching(true);
+    setSearched(true);
+
+    try {
+      const user = await findUserByFriendCode(cleanCode);
+      if (!user) {
+        setError('No user found with that Friend Code. Double-check the code with your friend.');
+      } else if (user.uid === userProfile?.uid) {
+        setError('This is your own Friend Code!');
+      } else {
+        setSearchResult(user);
+      }
+    } catch (err: any) {
+      setError('Failed to search user. Please try again.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSendRequest = async () => {
+    if (!userProfile || !searchResult) return;
+    setRequestSending(true);
+    setError(null);
+
+    try {
+      await sendFriendRequest(userProfile, searchResult);
+      setRequestSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Could not send friend request.');
+    } finally {
+      setRequestSending(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFriendCodeInput('');
+    setSearchResult(null);
+    setSearched(false);
+    setError(null);
+    setRequestSent(false);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in">
+      <div className="w-full max-w-md bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-800 p-6 overflow-hidden relative transition-colors">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white border border-zinc-800">
+              <UserPlus className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Add Friend</h2>
+              <p className="text-xs text-zinc-400">Find real friends using their unique Friend Code</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              handleReset();
+              onClose();
+            }}
+            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Discovery Rules Banner */}
+        <div className="my-4 p-3 bg-black border border-zinc-800 rounded-xl text-xs text-zinc-300 flex items-start gap-2.5">
+          <Sparkles className="w-4 h-4 text-white shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold mb-0.5 text-white">Strict Privacy Protection</p>
+            <p className="text-[11px] leading-relaxed text-zinc-400">
+              Users cannot be searched by name or email. You must enter their exact Friend Code received in person or via trusted channels.
+            </p>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSearch} className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              Enter Friend Code
+            </label>
+            <div className="relative">
+              <Search className="w-4 h-4 text-white absolute left-3 top-3 pointer-events-none z-10" />
+              <input
+                type="text"
+                value={friendCodeInput}
+                onChange={(e) => setFriendCodeInput(e.target.value)}
+                placeholder="e.g. PC-8F2X-LQ71 or ADMIN-0001"
+                className="w-full pl-9 pr-24 py-2.5 bg-black border border-zinc-700 rounded-xl text-xs font-mono font-bold text-white uppercase tracking-wider placeholder:text-zinc-500 focus:outline-none focus:border-white focus:ring-1 focus:ring-white"
+              />
+              <button
+                type="submit"
+                disabled={searching || !friendCodeInput.trim()}
+                className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-white hover:bg-zinc-200 disabled:opacity-50 text-black text-xs font-bold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+              >
+                {searching ? (
+                  <span className="animate-spin rounded-full h-3 w-3 border-2 border-black border-t-transparent" />
+                ) : (
+                  <>
+                    <Search className="w-3.5 h-3.5" />
+                    <span>Search</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </form>
+
+        {/* Error message */}
+        {error && (
+          <div className="mt-3 p-3 bg-black border border-zinc-800 rounded-xl text-xs text-zinc-300 flex items-center gap-2 animate-in fade-in">
+            <AlertCircle className="w-4 h-4 text-white shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Search Result Card */}
+        {searchResult && (
+          <div className="mt-4 p-4 bg-black border border-zinc-800 rounded-xl space-y-3 animate-in fade-in">
+            <div className="flex items-center gap-3">
+              {searchResult.photoURL ? (
+                <img
+                  src={searchResult.photoURL}
+                  alt={searchResult.fullName}
+                  className="w-12 h-12 rounded-full object-cover border border-zinc-700"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-white text-lg border border-zinc-700">
+                  {searchResult.fullName[0]?.toUpperCase()}
+                </div>
+              )}
+              <div>
+                <h3 className="font-bold text-white text-sm">
+                  {searchResult.fullName}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  @{searchResult.username}
+                </p>
+                <div className="inline-block text-[10px] font-mono bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 mt-0.5">
+                  {searchResult.friendCode}
+                </div>
+              </div>
+            </div>
+
+            {searchResult.bio && (
+              <p className="text-xs text-zinc-300 italic bg-zinc-900 p-2.5 rounded-lg border border-zinc-800">
+                "{searchResult.bio}"
+              </p>
+            )}
+
+            <button
+              onClick={handleSendRequest}
+              disabled={requestSending || requestSent}
+              className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                requestSent
+                  ? 'bg-zinc-800 text-white border border-zinc-700'
+                  : 'bg-white hover:bg-zinc-200 text-black shadow-sm'
+              }`}
+            >
+              {requestSending ? (
+                <span className="animate-spin rounded-full h-4 w-4 border-2 border-black border-t-transparent" />
+              ) : requestSent ? (
+                <>
+                  <Check className="w-4 h-4 text-white" />
+                  <span>Friend Request Sent!</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-4 h-4" />
+                  <span>Send Friend Request</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};

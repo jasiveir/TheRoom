@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --vintage-bg: #fbfaf6;
+    --vintage-card: #ffffff;
+    --vintage-border: #e2dfd2;
+    --vintage-text: #121212;
+    --vintage-subtext: #52525b;
+  }
+
+  * {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html, body {
+    background-color: #fbfaf6;
+    color: #121212;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* Vintage Terminal Input Caret */
+  input, textarea, select {
+    caret-color: #000000 !important;
+  }
+
+  /* Vintage Clean Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #f4f2ea;
+    border-left: 1px solid #e2dfd2;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #a19d90;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #121212;
+  }
+}
+
+/* Vintage Utility Classes (No Glow Effects) */
+.matrix-border {
+  border: 1px solid #e2dfd2;
+}
+
+.matrix-border-glow {
+  border: 1px solid #121212;
+  box-shadow: none;
+}
+
+.matrix-border-glow:focus, .matrix-border-glow:focus-within {
+  border-color: #000000;
+  box-shadow: none;
+}
+
+.matrix-text-glow {
+  text-shadow: none;
+}
+
+.matrix-bg-card {
+  background-color: #ffffff;
+  border: 1px solid #e2dfd2;
+}
+
+.matrix-bg-secondary {
+  background-color: #f7f5ee;
+}
+
+/* Cursor Blink Animation */
+@keyframes matrix-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-cursor-blink {
+  animation: matrix-cursor-blink 1s step-end infinite;
+}
+
+
