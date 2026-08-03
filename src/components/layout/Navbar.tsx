@@ -60,22 +60,22 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <div 
           onClick={() => setActiveTab('chats')} 
-          className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group min-w-0"
+          className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group min-w-0 shrink-0"
         >
           <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${template.bgCard} border ${template.borderMain} flex items-center justify-center font-bold text-base transition-transform group-hover:scale-105 shrink-0 overflow-hidden shadow-xs`}>
             <img src="/logos/TheRoom.jpg" alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h1 className={`font-extrabold ${template.textPrimary} tracking-wider leading-none text-xs sm:text-base md:text-lg uppercase truncate`}>
+          <div className="min-w-0 flex flex-col justify-center">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className={`font-extrabold ${template.textPrimary} tracking-wider leading-none text-xs sm:text-base md:text-lg uppercase whitespace-nowrap shrink-0`}>
                 THEROOM
               </h1>
               {template.id === 'apple-glass' ? (
-                <span className="retro-badge-spectrum shrink-0">
+                <span className="retro-badge-spectrum shrink-0 hidden min-[420px]:inline-block">
                   CHROME VYSE
                 </span>
               ) : template.id !== 'classic' && (
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${template.activeTabBg} ${template.activeTabText} shrink-0`}>
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${template.activeTabBg} ${template.activeTabText} shrink-0 hidden min-[420px]:inline-block`}>
                   {template.badge}
                 </span>
               )}
