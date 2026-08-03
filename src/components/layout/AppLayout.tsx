@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useMatrixTransition } from '../../context/MatrixTransitionContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { getOrCreatePrivateChat } from '../../lib/chatService';
+import { isAndroidLockActive, isApkMode } from '../../lib/deviceUtils';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
 import { AddFriendModal } from '../friends/AddFriendModal';
@@ -13,6 +14,10 @@ import { UnfriendModal } from '../friends/UnfriendModal';
 import { CreateGroupModal } from '../chat/CreateGroupModal';
 import { FriendProfileModal } from '../friends/FriendProfileModal';
 import { GroupDetailsModal } from '../chat/GroupDetailsModal';
+import { UserQRCodeModal } from '../qr/UserQRCodeModal';
+import { DownloadApkModal } from '../download/DownloadApkModal';
+import { ApkPermissionModal } from '../notifications/ApkPermissionModal';
+import { AndroidLockOverlay } from './AndroidLockOverlay';
 import { ChatsList } from '../chat/ChatsList';
 import { ChatView } from '../chat/ChatView';
 import { FriendList } from '../friends/FriendList';
@@ -33,13 +38,33 @@ export const AppLayout: React.FC = () => {
   const [showAddFriend, setShowAddFriend] = useState(false);
   const [showRequests, setShowRequests] = useState(false);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showUserQr, setShowUserQr] = useState(false);
+  const [showDownloadApk, setShowDownloadApk] = useState(false);
+  const [showApkPermissions, setShowApkPermissions] = useState(false);
+  const [androidLocked, setAndroidLocked] = useState(false);
+
   const [unfriendTarget, setUnfriendTarget] = useState<UserProfile | null>(null);
   const [profileTarget, setProfileTarget] = useState<UserProfile | null>(null);
   const [groupDetailsTarget, setGroupDetailsTarget] = useState<Chat | null>(null);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
+  // Check Android Lock & APK Notification permissions on mount
+  useEffect(() => {
+    if (isAndroidLockActive()) {
+      setAndroidLocked(true);
+    }
+
+    if (isApkMode()) {
+      const alreadyPrompted = localStorage.getItem('apk_notification_permission_granted');
+      if (!alreadyPrompted) {
+        setShowApkPermissions(true);
+      }
+    }
+  }, []);
+
   // Pending friend requests count
   const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
 
   useEffect(() => {
     if (!userProfile?.uid) return;
@@ -101,10 +126,20 @@ export const AppLayout: React.FC = () => {
         </div>
       )}
 
+      {/* Android Device Lock Overlay */}
+      {androidLocked && (
+        <AndroidLockOverlay
+          onBypass={() => setAndroidLocked(false)}
+          onDownloadApk={() => setShowDownloadApk(true)}
+        />
+      )}
+
       {/* Navbar */}
       <Navbar
         onOpenAddFriend={handleOpenAddFriend}
         onOpenRequests={handleOpenRequests}
+        onOpenQrCode={() => setShowUserQr(true)}
+        onOpenDownloadApk={() => setShowDownloadApk(true)}
         onToggleSidebarMobile={() => setMobileSidebarOpen(!mobileSidebarOpen)}
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -133,8 +168,17 @@ export const AppLayout: React.FC = () => {
               handleOpenCreateGroup();
               setMobileSidebarOpen(false);
             }}
+            onOpenQrCode={() => {
+              setShowUserQr(true);
+              setMobileSidebarOpen(false);
+            }}
+            onOpenDownloadApk={() => {
+              setShowDownloadApk(true);
+              setMobileSidebarOpen(false);
+            }}
           />
         </aside>
+
 
         {/* Mobile/Tablet backdrop for drawer */}
         {mobileSidebarOpen && (
@@ -268,6 +312,22 @@ export const AppLayout: React.FC = () => {
         chat={groupDetailsTarget}
         onClose={() => setGroupDetailsTarget(null)}
       />
+
+      <UserQRCodeModal
+        isOpen={showUserQr}
+        onClose={() => setShowUserQr(false)}
+      />
+
+      <DownloadApkModal
+        isOpen={showDownloadApk}
+        onClose={() => setShowDownloadApk(false)}
+      />
+
+      <ApkPermissionModal
+        isOpen={showApkPermissions}
+        onClose={() => setShowApkPermissions(false)}
+      />
     </div>
   );
 };
+

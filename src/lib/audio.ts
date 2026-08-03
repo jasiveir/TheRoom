@@ -187,4 +187,38 @@ export function playMatrixTransitionSound() {
   }
 }
 
+export function playGlitchNotificationSound() {
+  try {
+    const ctx = getAudioContext();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+    const now = ctx.currentTime;
+
+    const glitchFreqs = [1800, 440, 2600, 880, 3200, 1200, 2200];
+    glitchFreqs.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = idx % 2 === 0 ? 'sawtooth' : 'square';
+      const time = now + idx * 0.04;
+      osc.frequency.setValueAtTime(freq, time);
+      osc.frequency.setValueAtTime(freq * 1.5, time + 0.02);
+
+      gain.gain.setValueAtTime(0.01, time);
+      gain.gain.linearRampToValueAtTime(0.18, time + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + 0.038);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(time);
+      osc.stop(time + 0.04);
+    });
+  } catch (e) {
+    console.warn('Could not play glitch notification sound:', e);
+  }
+}
+
+
 

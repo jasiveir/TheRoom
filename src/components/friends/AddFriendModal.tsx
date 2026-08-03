@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
-import { X, Search, UserPlus, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { X, Search, UserPlus, Check, AlertCircle, Sparkles, Camera, QrCode } from 'lucide-react';
 import { findUserByFriendCode, sendFriendRequest } from '../../lib/friendService';
 import { useAuth } from '../../context/AuthContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { UserProfile } from '../../types';
+import { isApkMode } from '../../lib/deviceUtils';
+import { CameraQRScannerModal } from '../qr/CameraQRScannerModal';
+import { DeviceCameraPermissionModal } from '../qr/DeviceCameraPermissionModal';
+import { UserQRCodeModal } from '../qr/UserQRCodeModal';
 
 interface AddFriendModalProps {
   isOpen: boolean;
@@ -21,17 +25,36 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
   const [requestSent, setRequestSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [isCameraScannerOpen, setIsCameraScannerOpen] = useState(false);
+  const [isDevicePermissionOpen, setIsDevicePermissionOpen] = useState(false);
+  const [isUserQrOpen, setIsUserQrOpen] = useState(false);
+
+  const isApp = isApkMode();
+
   if (!isOpen) return null;
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenScanner = () => {
+    const granted = localStorage.getItem('apk_camera_permission_allowed') === 'true';
+    if (granted) {
+      setIsCameraScannerOpen(true);
+    } else {
+      setIsDevicePermissionOpen(true);
+    }
+  };
+
+  const handlePermissionAllowed = () => {
+    setIsDevicePermissionOpen(false);
+    setIsCameraScannerOpen(true);
+  };
+
+  const performSearchByCode = async (code: string) => {
     setError(null);
     setSearchResult(null);
     setRequestSent(false);
 
-    const cleanCode = friendCodeInput.trim().toUpperCase();
+    const cleanCode = code.trim().toUpperCase();
     if (!cleanCode) {
-      setError('Please enter a valid Friend Code (e.g. PC-8F2X-LQ71 or ADMIN-0001).');
+      setError('Please enter a valid Friend Code.');
       return;
     }
 
@@ -52,6 +75,16 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
     } finally {
       setSearching(false);
     }
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performSearchByCode(friendCodeInput);
+  };
+
+  const handleQrScanned = (scannedCode: string) => {
+    setFriendCodeInput(scannedCode);
+    performSearchByCode(scannedCode);
   };
 
   const handleSendRequest = async () => {
@@ -109,7 +142,31 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
           </button>
         </div>
 
+        {/* Quick QR Code Action Buttons */}
+        <div className={`grid ${isApp ? 'grid-cols-2' : 'grid-cols-1'} gap-2 my-3`}>
+          {isApp && (
+            <button
+              type="button"
+              onClick={handleOpenScanner}
+              className="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-green-400 border-2 border-zinc-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+            >
+              <Camera className="w-4 h-4 text-green-400" />
+              <span>Scan Camera QR</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsUserQrOpen(true)}
+            className="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-white border-2 border-zinc-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+          >
+            <QrCode className="w-4 h-4 text-amber-400" />
+            <span>My QR Code</span>
+          </button>
+        </div>
+
         {/* Discovery Rules Banner */}
+
         <div className="my-4 p-3 bg-zinc-900 border-2 border-zinc-800 rounded-xl text-xs text-zinc-300 flex items-start gap-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
           <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
@@ -230,6 +287,27 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
           </div>
         )}
       </div>
+
+      {/* Device Camera Permission Modal (APK Mode) */}
+      <DeviceCameraPermissionModal
+        isOpen={isDevicePermissionOpen}
+        onClose={() => setIsDevicePermissionOpen(false)}
+        onAllow={handlePermissionAllowed}
+      />
+
+      {/* Camera QR Scanner Modal */}
+      <CameraQRScannerModal
+        isOpen={isCameraScannerOpen}
+        onClose={() => setIsCameraScannerOpen(false)}
+        onScanSuccess={handleQrScanned}
+      />
+
+      {/* User QR Code Generator Modal */}
+      <UserQRCodeModal
+        isOpen={isUserQrOpen}
+        onClose={() => setIsUserQrOpen(false)}
+      />
     </div>
   );
 };
+

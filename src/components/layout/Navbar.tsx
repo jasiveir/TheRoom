@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
+import { isApkMode } from '../../lib/deviceUtils';
 import logoImg from '../../assets/TheRoom.jpg';
 import { 
   Shield, 
@@ -18,12 +19,16 @@ import {
   Terminal,
   Activity,
   Cpu,
-  Sparkles
+  Sparkles,
+  QrCode,
+  Download
 } from 'lucide-react';
 
 interface NavbarProps {
   onOpenAddFriend: () => void;
   onOpenRequests: () => void;
+  onOpenQrCode?: () => void;
+  onOpenDownloadApk?: () => void;
   onToggleSidebarMobile?: () => void;
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -33,6 +38,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAddFriend,
   onOpenRequests,
+  onOpenQrCode,
+  onOpenDownloadApk,
   onToggleSidebarMobile,
   activeTab,
   setActiveTab,
@@ -43,6 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { darkMode, toggleDarkMode } = useTheme();
   const { template } = useLayoutTemplate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const isApp = isApkMode();
 
   return (
     <header id="app-header" className={`h-16 ${template.bgNavbar} border-b ${template.borderMain} px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-30 transition-colors shadow-xs w-full max-w-full`}>
@@ -93,6 +101,7 @@ export const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-1 sm:gap-2 shrink-0">
         <button
           id="friend-requests-nav-btn"
+
           onClick={onOpenRequests}
           className={`relative p-1.5 sm:p-2 rounded-lg ${template.textPrimary} border ${template.borderMain} ${template.bgCard} hover:opacity-90 transition-all cursor-pointer`}
           title="Friend Requests"
@@ -186,8 +195,37 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
               </div>
 
+              {onOpenQrCode && (
+                <button
+                  id="menu-qr-code-btn"
+                  onClick={() => {
+                    onOpenQrCode();
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs font-bold text-black hover:bg-black/5 flex items-center gap-2 transition-colors uppercase tracking-wider cursor-pointer border-t border-[#e2dfd2]"
+                >
+                  <QrCode className="w-4 h-4 text-amber-600" />
+                  My QR Code
+                </button>
+              )}
+
+              {!isApp && onOpenDownloadApk && (
+                <button
+                  id="menu-download-apk-btn"
+                  onClick={() => {
+                    onOpenDownloadApk();
+                    setShowProfileMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-xs font-black text-green-700 bg-green-50 hover:bg-green-100 flex items-center gap-2 transition-colors uppercase tracking-wider cursor-pointer border-t border-[#e2dfd2]"
+                >
+                  <Download className="w-4 h-4 text-green-700" />
+                  Download Android APK
+                </button>
+              )}
+
               <button
                 id="menu-settings-btn"
+
                 onClick={() => {
                   setActiveTab('settings');
                   setShowProfileMenu(false);

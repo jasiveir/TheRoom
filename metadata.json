@@ -1,6 +1,6 @@
 {
   "name": "TheRoom",
   "description": "Real Friends. Real Conversations. Secure real-time private messaging platform.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -1,8 +1,9 @@
 import React from 'react';
-import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Terminal } from 'lucide-react';
+import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Terminal, QrCode, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
+import { isApkMode } from '../../lib/deviceUtils';
 import logoImg from '../../assets/TheRoom.jpg';
 
 interface SidebarProps {
@@ -11,6 +12,8 @@ interface SidebarProps {
   pendingRequestsCount: number;
   onOpenAddFriend: () => void;
   onOpenCreateGroup: () => void;
+  onOpenQrCode?: () => void;
+  onOpenDownloadApk?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -18,11 +21,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setActiveTab,
   pendingRequestsCount,
   onOpenAddFriend,
-  onOpenCreateGroup
+  onOpenCreateGroup,
+  onOpenQrCode,
+  onOpenDownloadApk
 }) => {
   const { isAdmin } = useAuth();
   const { unreadCount } = useNotifications();
   const { template } = useLayoutTemplate();
+  const isApp = isApkMode();
+
 
   const navItems = [
     {
@@ -94,7 +101,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <PlusCircle className="w-4 h-4" />
             <span>New Group</span>
           </button>
+
+          {onOpenQrCode && (
+            <button
+              id="sidebar-qr-code-btn"
+              onClick={onOpenQrCode}
+              className={`col-span-1 flex items-center justify-center gap-1.5 p-2 bg-zinc-900 text-amber-400 hover:opacity-90 rounded-xl text-xs font-bold transition-all border border-zinc-800 active:scale-95 uppercase tracking-wider cursor-pointer`}
+            >
+              <QrCode className="w-3.5 h-3.5 text-amber-400" />
+              <span>My QR</span>
+            </button>
+          )}
+
+          {!isApp && onOpenDownloadApk && (
+            <button
+              id="sidebar-download-apk-btn"
+              onClick={onOpenDownloadApk}
+              className={`col-span-1 flex items-center justify-center gap-1.5 p-2 bg-green-500 text-black hover:bg-green-400 rounded-xl text-xs font-black transition-all border-2 border-black active:scale-95 uppercase tracking-wider cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}
+            >
+              <Download className="w-3.5 h-3.5 text-black" />
+              <span>Get APK</span>
+            </button>
+          )}
         </div>
+
 
         {/* Navigation Section Header Badge */}
         {template.id === 'apple-glass' && (
