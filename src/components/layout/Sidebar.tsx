@@ -3,7 +3,7 @@ import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Ter
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
-import { isApkMode } from '../../lib/deviceUtils';
+import { isApkMode, isMobileDevice } from '../../lib/deviceUtils';
 import logoImg from '../../assets/TheRoom.jpg';
 
 interface SidebarProps {
@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {!isApp && onOpenDownloadApk && (
+          {!isApp && isMobileDevice() && onOpenDownloadApk && (
             <button
               id="sidebar-download-apk-btn"
               onClick={onOpenDownloadApk}

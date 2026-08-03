@@ -1,3 +1,6 @@
+export const APK_RELEASE_URL = 'https://github.com/jasiveir/TheRoom/releases/download/TheRoom/TheRoom.apk';
+export const APK_RELEASE_TAG_URL = 'https://github.com/jasiveir/TheRoom/releases/tag/TheRoom';
+
 export function isApkMode(): boolean {
   if (typeof window === 'undefined') return false;
   const searchParams = new URLSearchParams(window.location.search);
@@ -9,27 +12,41 @@ export function isApkMode(): boolean {
   return false;
 }
 
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|Tablet/i.test(ua);
+}
+
 export function isAndroidDevice(): boolean {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
   return /Android/i.test(ua);
 }
 
-export function isAndroidLockActive(): boolean {
+export function isMobileLockActive(): boolean {
   if (typeof window === 'undefined') return false;
-  if (isApkMode()) return false; // Native APK mode never locks
-  if (!isAndroidDevice()) return false;
-  if (sessionStorage.getItem('bypass_android_lock') === 'true') return false;
+  if (isApkMode()) return false; // Native APK app never locks
+  if (!isMobileDevice()) return false; // Desktop/PC browsers do not lock and do not show app download
+  if (sessionStorage.getItem('bypass_mobile_lock') === 'true') return false;
   return true;
 }
 
-export function setAndroidBypass(bypass: boolean = true) {
+export function setMobileBypass(bypass: boolean = true) {
   if (typeof window === 'undefined') return;
   if (bypass) {
-    sessionStorage.setItem('bypass_android_lock', 'true');
+    sessionStorage.setItem('bypass_mobile_lock', 'true');
   } else {
-    sessionStorage.removeItem('bypass_android_lock');
+    sessionStorage.removeItem('bypass_mobile_lock');
   }
+}
+
+export function setAndroidBypass(bypass: boolean = true) {
+  setMobileBypass(bypass);
+}
+
+export function isAndroidLockActive(): boolean {
+  return isMobileLockActive();
 }
 
 export function setApkModeOverride(enabled: boolean) {

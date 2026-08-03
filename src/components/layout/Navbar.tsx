@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
-import { isApkMode } from '../../lib/deviceUtils';
+import { isApkMode, isMobileDevice } from '../../lib/deviceUtils';
 import logoImg from '../../assets/TheRoom.jpg';
 import { 
   Shield, 
@@ -209,7 +209,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               )}
 
-              {!isApp && onOpenDownloadApk && (
+              {!isApp && isMobileDevice() && onOpenDownloadApk && (
                 <button
                   id="menu-download-apk-btn"
                   onClick={() => {
