@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LogIn, UserPlus, Shield, Sparkles, MessageSquare, ArrowRight } from 'lucide-react';
+import logoImg from '../assets/TheRoom.jpg';
 
 export const AuthSelection: React.FC = () => {
   return (
@@ -9,7 +10,12 @@ export const AuthSelection: React.FC = () => {
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-20 h-20 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center font-black text-3xl mb-4 overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-200">
-            <img src="/logos/TheRoom.jpg" alt="TheRoom Logo" className="w-full h-full object-cover" />
+            <img 
+              src={logoImg} 
+              onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} 
+              alt="TheRoom Logo" 
+              className="w-full h-full object-cover" 
+            />
           </div>
           <h1 className="text-3xl font-extrabold text-black tracking-wider uppercase">TheRoom</h1>
           <p className="text-xs text-zinc-500 font-medium mt-1.5 uppercase tracking-widest flex items-center justify-center gap-1.5">

@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
+import logoImg from '../../assets/TheRoom.jpg';
 import { 
   Shield, 
   Bell, 
@@ -63,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group min-w-0 shrink-0"
         >
           <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${template.bgCard} border ${template.borderMain} flex items-center justify-center font-bold text-base transition-transform group-hover:scale-105 shrink-0 overflow-hidden shadow-xs`}>
-            <img src="/logos/TheRoom.jpg" alt="TheRoom Logo" className="w-full h-full object-cover" />
+            <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0 flex flex-col justify-center">
             <div className="flex items-center gap-1.5 min-w-0">
