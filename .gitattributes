@@ -1,0 +1,9 @@
+* text=auto
+
+# Binary files - prevent git from treating images as text or converting line endings
+*.jpg binary
+*.jpeg binary
+*.png binary
+*.gif binary
+*.ico binary
+*.webp binary
