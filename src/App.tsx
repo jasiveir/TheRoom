@@ -32,7 +32,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     return (
       <div className="min-h-dvh w-full bg-[#000000] flex flex-col items-center justify-center text-[#00ff41] p-4 font-mono">
         <div className="w-14 h-14 rounded-2xl bg-black border border-[#00ff41] flex items-center justify-center font-black text-xl mb-4 animate-pulse shadow-[0_0_15px_rgba(0,255,65,0.4)] overflow-hidden">
-          <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
+          <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
         </div>
         <span className="animate-spin rounded-full h-6 w-6 border-2 border-[#00ff41] border-t-transparent" />
         <p className="text-xs text-[#00ff41]/70 mt-3 font-medium tracking-widest uppercase">Securing connection to TheRoom...</p>

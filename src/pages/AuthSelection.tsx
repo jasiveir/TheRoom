@@ -12,7 +12,7 @@ export const AuthSelection: React.FC = () => {
           <div className="w-20 h-20 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center font-black text-3xl mb-4 overflow-hidden shadow-lg transform hover:scale-105 transition-transform duration-200">
             <img 
               src={logoImg} 
-              onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} 
+              onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} 
               alt="TheRoom Logo" 
               className="w-full h-full object-cover" 
             />

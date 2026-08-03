@@ -62,7 +62,7 @@ export const Login: React.FC = () => {
         {/* Brand Header */}
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center font-black text-2xl mx-auto mb-3 overflow-hidden shadow-md">
-            <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
+            <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-extrabold text-black tracking-wider uppercase">TheRoom</h1>
           <p className="text-xs text-zinc-600 font-medium mt-1 uppercase tracking-widest">// SECURE MESSAGING // Vintage Node //</p>

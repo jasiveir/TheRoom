@@ -6,3 +6,6 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Ignore public/logos folder and all images inside it from Git operations
+public/logos/

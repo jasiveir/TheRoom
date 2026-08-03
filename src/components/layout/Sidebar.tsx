@@ -141,7 +141,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       <div className={`p-3.5 border-t ${template.borderMain} text-[10px] ${template.textSecondary} text-center font-mono flex items-center justify-center gap-1.5`}>
-        <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logo.jpg'; }} alt="TheRoom" className="w-3.5 h-3.5 rounded object-cover" />
+        <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} alt="TheRoom" className="w-3.5 h-3.5 rounded object-cover" />
         <span className={template.id === 'apple-glass' ? 'animate-spectrum-text font-bold' : ''}>
           THEROOM // {template.badge}
         </span>
