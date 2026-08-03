@@ -6,10 +6,3 @@ coverage/
 *.log
 .env*
 !.env.example
-
-# Ignore public/logos folder and all images inside it from Git operations
-public/logos/
-
-# Ignore local asset images from Git operations so pulls and pushes won't overwrite them
-src/assets/TheRoom.jpg
-src/assets/images/
