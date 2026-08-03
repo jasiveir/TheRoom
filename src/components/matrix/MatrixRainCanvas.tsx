@@ -204,10 +204,11 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
       }
       ctx.restore();
 
-      // Render matrix code characters with black outline
+      // Render matrix code characters cleanly without heavy per-character strokeText or shadowBlur
       ctx.save();
       ctx.font = `700 ${baseFontSize}px monospace, 'Courier New', monospace`;
       ctx.textBaseline = 'top';
+      ctx.shadowBlur = 0; // Disable heavy Gaussian blur filter in rendering loop for 60fps performance
 
       gridCells.forEach((cell) => {
         // Only render cells within the active curtain sweep area
@@ -228,36 +229,22 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
 
         ctx.globalAlpha = alpha;
 
-        // BLACK OUTLINE TO HIGHLIGHT MATRIX CODES
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 3.5;
-        ctx.lineJoin = 'round';
-        ctx.strokeText(cell.char, cell.x, cell.y);
-
-        // Fill character color
+        // Fill character color based on theme
         if (theme === 'spectrum') {
           const SPECTRUM_COLORS = ['#f97316', '#22c55e', '#eab308', '#3b82f6', '#ec4899', '#a855f7'];
-          const colorIdx = Math.floor(((cell.x * 1.5 + cell.y + elapsed * 0.4) / 120)) % SPECTRUM_COLORS.length;
-          const curColor = SPECTRUM_COLORS[colorIdx];
+          const colorIdx = Math.floor((cell.x * 0.02 + cell.y * 0.05 + elapsed * 0.003)) % SPECTRUM_COLORS.length;
+          const curColor = SPECTRUM_COLORS[(colorIdx + SPECTRUM_COLORS.length) % SPECTRUM_COLORS.length];
           if (distToLead < 40 || cell.isHead) {
             ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = curColor;
-            ctx.shadowBlur = 12;
           } else {
             ctx.fillStyle = curColor;
-            ctx.shadowColor = curColor;
-            ctx.shadowBlur = 4;
           }
         } else if (distToLead < 40 || cell.isHead) {
           ctx.fillStyle = colors.head;
-          ctx.shadowColor = colors.headGlow;
-          ctx.shadowBlur = 10;
         } else if (distToLead < 140) {
           ctx.fillStyle = colors.bodyHigh;
-          ctx.shadowBlur = 0;
         } else {
           ctx.fillStyle = colors.bodyMid;
-          ctx.shadowBlur = 0;
         }
 
         ctx.fillText(cell.char, cell.x, cell.y);
