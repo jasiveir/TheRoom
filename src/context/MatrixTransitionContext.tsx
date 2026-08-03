@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { MatrixRainCanvas, MatrixTheme } from '../components/matrix/MatrixRainCanvas';
 import { playMatrixTransitionSound } from '../lib/audio';
+import { useLayoutTemplate } from './LayoutTemplateContext';
 
 interface MatrixTransitionContextType {
   isActive: boolean;
@@ -85,6 +86,9 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
     setFadePhase('idle');
   }, []);
 
+  const { template } = useLayoutTemplate();
+  const activeMatrixTheme = template?.id === 'apple-glass' ? 'spectrum' : matrixTheme;
+
   return (
     <MatrixTransitionContext.Provider
       value={{
@@ -101,7 +105,7 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
       {/* Matrix Rain Transition Canvas */}
       <MatrixRainCanvas
         isActive={isActive}
-        theme={matrixTheme}
+        theme={activeMatrixTheme}
         fadePhase={fadePhase}
         onTransitionPeak={handlePeak}
         onTransitionComplete={handleComplete}

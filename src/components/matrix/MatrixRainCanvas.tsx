@@ -22,7 +22,7 @@ const getRandomChar = (): string => {
   return ALL_CHARS[Math.floor(Math.random() * ALL_CHARS.length)];
 };
 
-export type MatrixTheme = 'crimson' | 'purple' | 'amber' | 'monochrome';
+export type MatrixTheme = 'crimson' | 'purple' | 'amber' | 'monochrome' | 'spectrum';
 
 interface MatrixRainCanvasProps {
   isActive: boolean;
@@ -65,6 +65,13 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
 
   const getColorScheme = (t: MatrixTheme) => {
     switch (t) {
+      case 'spectrum':
+        return {
+          head: '#ffffff',
+          headGlow: '#f97316',
+          bodyHigh: '#22c55e',
+          bodyMid: '#a855f7',
+        };
       case 'purple':
         return {
           head: '#e879f9',
@@ -228,7 +235,20 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
         ctx.strokeText(cell.char, cell.x, cell.y);
 
         // Fill character color
-        if (distToLead < 40 || cell.isHead) {
+        if (theme === 'spectrum') {
+          const SPECTRUM_COLORS = ['#f97316', '#22c55e', '#eab308', '#3b82f6', '#ec4899', '#a855f7'];
+          const colorIdx = Math.floor(((cell.x * 1.5 + cell.y + elapsed * 0.4) / 120)) % SPECTRUM_COLORS.length;
+          const curColor = SPECTRUM_COLORS[colorIdx];
+          if (distToLead < 40 || cell.isHead) {
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = curColor;
+            ctx.shadowBlur = 12;
+          } else {
+            ctx.fillStyle = curColor;
+            ctx.shadowColor = curColor;
+            ctx.shadowBlur = 4;
+          }
+        } else if (distToLead < 40 || cell.isHead) {
           ctx.fillStyle = colors.head;
           ctx.shadowColor = colors.headGlow;
           ctx.shadowBlur = 10;

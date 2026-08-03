@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { UserProfile } from '../../types';
 import { checkIsFriend } from '../../lib/friendService';
 import { createGroupChat } from '../../lib/chatService';
@@ -29,6 +30,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   onClose,
   onGroupCreated
 }) => {
+  const { template } = useLayoutTemplate();
   const { userProfile } = useAuth();
   const [friends, setFriends] = useState<UserProfile[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
@@ -203,19 +205,26 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 animate-in fade-in">
-      <div className="w-full max-w-md bg-zinc-900 rounded-2xl shadow-2xl border border-zinc-800 p-6 overflow-hidden relative transition-colors max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4 animate-in fade-in">
+      <div className="w-full max-w-md bg-zinc-950 text-white rounded-2xl shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] border-2 border-zinc-800 p-6 overflow-hidden relative transition-colors max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-800 shrink-0">
+        <div className="flex items-center justify-between pb-4 border-b-2 border-zinc-800 shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white border border-zinc-800">
+            <div className="w-8 h-8 rounded-lg bg-black text-white flex items-center justify-center border-2 border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
               <Users className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-bold text-white">Create Group Chat</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-white">Create Group Chat</h2>
+              {template.id === 'apple-glass' && (
+                <span className="retro-badge-spectrum ml-1">
+                  NEW GROUP
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer border border-transparent hover:border-zinc-700"
           >
             <X className="w-5 h-5" />
           </button>
@@ -269,7 +278,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setPhotoURL('')}
-                    className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                    className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
                     title="Remove Picture"
                   >
                     <X className="w-4 h-4" />

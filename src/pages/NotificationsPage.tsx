@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNotifications } from '../context/NotificationContext';
+import { useLayoutTemplate } from '../context/LayoutTemplateContext';
 import { 
   Bell, 
   CheckCheck, 
@@ -19,6 +20,7 @@ interface NotificationsPageProps {
 }
 
 export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequests }) => {
+  const { template } = useLayoutTemplate();
   const { 
     notifications, 
     unreadCount, 
@@ -98,14 +100,21 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-black p-4 sm:p-6 overflow-y-auto font-sans">
+    <div className="flex-1 flex flex-col h-full bg-black text-white p-4 sm:p-6 overflow-y-auto font-sans transition-colors">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-zinc-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b-2 border-zinc-800">
         <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Bell className="w-5 h-5 text-white" />
-            <span>Notifications</span>
-          </h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-extrabold text-white flex items-center gap-2 tracking-wide">
+              <Bell className="w-5 h-5 text-white" />
+              <span>Notifications</span>
+            </h2>
+            {template.id === 'apple-glass' && (
+              <span className="retro-badge-spectrum ml-2">
+                SIGNAL LOGS
+              </span>
+            )}
+          </div>
           <p className="text-xs text-zinc-400 mt-0.5">
             Stay updated with friend requests and chat activity
           </p>
@@ -115,10 +124,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
           {unreadCount > 0 && (
             <button
               onClick={markAllAsRead}
-              className="px-3 py-1.5 bg-zinc-800 text-white hover:bg-zinc-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-zinc-700 cursor-pointer"
+              className="px-3 py-1.5 bg-zinc-900 text-white hover:bg-zinc-800 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border-2 border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
               title="Mark all notifications as read"
             >
-              <CheckCheck className="w-3.5 h-3.5" />
+              <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
               <span>Mark Read</span>
             </button>
           )}
@@ -130,10 +139,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                   setSelectMode(!selectMode);
                   if (selectMode) setSelectedIds([]);
                 }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border-2 border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer ${
                   selectMode 
-                    ? 'bg-white text-black border-white' 
-                    : 'bg-zinc-900 text-zinc-300 hover:text-white border-zinc-800'
+                    ? 'bg-white text-black border-black font-extrabold' 
+                    : 'bg-zinc-900 text-zinc-300 hover:text-white'
                 }`}
               >
                 <CheckSquare className="w-3.5 h-3.5" />
@@ -142,10 +151,10 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
 
               <button
                 onClick={handleWipeAll}
-                className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border border-rose-800/60 cursor-pointer"
+                className="px-3 py-1.5 bg-rose-950/80 hover:bg-rose-900 text-rose-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors border-2 border-rose-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
                 title="Wipe all notifications"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Trash2 className="w-3.5 h-3.5 text-rose-400" />
                 <span>Wipe All</span>
               </button>
             </>
@@ -155,7 +164,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
 
       {/* Select Control Toolbar */}
       {selectMode && notifications.length > 0 && (
-        <div className="mb-4 p-3 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center justify-between text-xs text-zinc-300">
+        <div className="mb-4 p-3 bg-zinc-900 rounded-xl border-2 border-zinc-800 flex items-center justify-between text-xs text-zinc-300 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
           <button
             onClick={toggleSelectAll}
             className="flex items-center gap-2 hover:text-white transition-colors cursor-pointer font-medium"
@@ -173,7 +182,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
           {selectedIds.length > 0 && (
             <button
               onClick={handleDeleteSelected}
-              className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg flex items-center gap-1.5 transition-all text-xs cursor-pointer shadow-xs"
+              className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg flex items-center gap-1.5 transition-all text-xs cursor-pointer border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Delete Selected ({selectedIds.length})</span>
@@ -184,15 +193,15 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
 
       {/* Notifications List */}
       {notifications.length === 0 ? (
-        <div className="text-center py-16 px-4 bg-zinc-900/60 rounded-2xl border border-zinc-800">
-          <Bell className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+        <div className="text-center py-16 px-4 bg-zinc-900 rounded-2xl border-2 border-zinc-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+          <Bell className="w-10 h-10 text-zinc-500 mx-auto mb-3" />
           <h3 className="font-bold text-white text-sm">No notifications yet</h3>
           <p className="text-xs text-zinc-400 mt-1">
             Activity alerts like friend requests and group updates will appear here.
           </p>
         </div>
       ) : (
-        <div className="space-y-2 max-w-2xl">
+        <div className="space-y-2.5 max-w-2xl">
           {notifications.map((n) => {
             const isSelected = selectedIds.includes(n.id);
             return (
@@ -205,12 +214,14 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                     markAsRead(n.id);
                   }
                 }}
-                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start gap-3.5 relative group ${
+                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-start gap-3.5 relative group bg-zinc-900 border-zinc-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
+                  template.id === 'apple-glass' ? 'hover:animate-spectrum-border' : 'hover:border-zinc-500'
+                } ${
                   isSelected
-                    ? 'bg-zinc-800/80 border-white shadow-xs'
+                    ? 'ring-2 ring-orange-500 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
                     : n.read
-                    ? 'bg-zinc-900/60 border-zinc-800/80 opacity-70 hover:opacity-100'
-                    : 'bg-zinc-900 border-zinc-700 shadow-xs'
+                    ? 'opacity-80 hover:opacity-100'
+                    : 'bg-zinc-900/90'
                 }`}
               >
                 {/* Select Checkbox */}
@@ -225,12 +236,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                     {isSelected ? (
                       <CheckSquare className="w-4 h-4 text-white" />
                     ) : (
-                      <Square className="w-4 h-4 text-zinc-600" />
+                      <Square className="w-4 h-4 text-zinc-500" />
                     )}
                   </button>
                 )}
 
-                <div className="w-9 h-9 rounded-xl bg-black border border-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-9 h-9 rounded-xl bg-black text-white border-2 border-zinc-700 flex items-center justify-center shrink-0 mt-0.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                   {getIcon(n.type)}
                 </div>
 
@@ -239,7 +250,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                     <h4 className="font-bold text-xs text-white truncate">
                       {n.title}
                     </h4>
-                    <span className="text-[10px] text-zinc-500 shrink-0">
+                    <span className="text-[10px] text-zinc-400 shrink-0">
                       {formatDate(n.createdAt)}
                     </span>
                   </div>
@@ -248,7 +259,7 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                   </p>
 
                   {n.type === 'new_message' && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-amber-400 font-mono font-bold bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/50 w-fit">
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-amber-400 font-mono font-bold bg-amber-950/60 px-2 py-0.5 rounded-md border border-amber-800/80 w-fit">
                       <Timer className="w-3 h-3 text-amber-400 animate-pulse" />
                       <span>Signal log auto-clears in {getRemainingSec(n)}s</span>
                     </div>
@@ -261,7 +272,11 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                         if (!n.read) markAsRead(n.id);
                         onOpenRequests();
                       }}
-                      className="mt-2 px-2.5 py-1 bg-white hover:bg-zinc-200 text-black text-[11px] font-bold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                      className={`mt-2 px-2.5 py-1 ${
+                        template.id === 'apple-glass'
+                          ? 'animate-spectrum-bg hover:opacity-90 font-black text-black'
+                          : 'bg-white hover:bg-zinc-200 text-black font-extrabold'
+                      } text-[11px] rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center gap-1 transition-all cursor-pointer`}
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>View Friend Requests</span>
@@ -272,7 +287,12 @@ export const NotificationsPage: React.FC<NotificationsPageProps> = ({ onOpenRequ
                 {/* Right controls: unread indicator + single delete button */}
                 <div className="flex items-center gap-2 shrink-0 mt-0.5">
                   {!n.read && !selectMode && (
-                    <span className="w-2.5 h-2.5 rounded-full bg-white shrink-0" title="Unread" />
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+                        template.id === 'apple-glass' ? 'animate-spectrum-bg' : 'bg-orange-500'
+                      }`}
+                      title="Unread"
+                    />
                   )}
 
                   {!selectMode && (

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { Chat } from '../../types';
 import { MessageSquare, Plus, Users, Search, Terminal, Trash2 } from 'lucide-react';
 import { checkIsFriend } from '../../lib/friendService';
@@ -128,19 +129,21 @@ export const ChatsList: React.FC<ChatsListProps> = ({
     }
   });
 
+  const { template } = useLayoutTemplate();
+
   return (
-    <div id="chats-list-panel" className="w-full h-full bg-[#fbfaf6] flex flex-col shrink-0 transition-colors">
+    <div id="chats-list-panel" className={`w-full h-full ${template.bgMain} flex flex-col shrink-0 transition-colors`}>
       {/* Header */}
-      <div className="p-4 border-b border-[#e2dfd2] space-y-3 bg-white">
+      <div className={`p-4 border-b ${template.borderMain} space-y-3 ${template.bgSidebar}`}>
         <div className="flex items-center justify-between">
-          <h2 className="font-bold text-black text-sm flex items-center gap-2 uppercase tracking-wider">
-            <MessageSquare className="w-4 h-4 text-black" />
+          <h2 className={`font-bold ${template.textPrimary} text-sm flex items-center gap-2 uppercase tracking-wider`}>
+            <MessageSquare className={`w-4 h-4 ${template.textPrimary}`} />
             <span>Active Conversations</span>
           </h2>
 
           <button
             onClick={onOpenCreateGroup}
-            className="p-1.5 rounded-lg bg-[#f7f5ee] text-black hover:bg-black hover:text-white border border-[#e2dfd2] transition-all cursor-pointer"
+            className={`p-1.5 rounded-lg ${template.bgCard} ${template.textPrimary} hover:opacity-90 border ${template.borderMain} transition-all cursor-pointer`}
             title="Create Group Chat"
           >
             <Plus className="w-4 h-4" />
@@ -154,14 +157,14 @@ export const ChatsList: React.FC<ChatsListProps> = ({
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             placeholder="Search channels..."
-            className="w-full pl-8 pr-3 py-2 bg-[#f7f5ee] border border-[#e2dfd2] rounded-xl text-xs text-black placeholder-zinc-500 focus:outline-none focus:border-black font-sans"
+            className={`w-full pl-8 pr-3 py-2 ${template.bgCard} border ${template.borderMain} rounded-xl text-xs ${template.textPrimary} placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-400 font-sans`}
           />
           <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 top-2.5 pointer-events-none" />
         </div>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 bg-[#fbfaf6]">
+      <div className={`flex-1 overflow-y-auto p-2 space-y-1.5 ${template.bgMain}`}>
         {loading ? (
           <div className="py-8 text-center flex flex-col items-center justify-center gap-2 text-zinc-500 text-xs">
             <span className="animate-spin rounded-full h-5 w-5 border-2 border-black border-t-transparent inline-block" />
@@ -206,8 +209,8 @@ export const ChatsList: React.FC<ChatsListProps> = ({
                 onClick={handleChatClick}
                 className={`group flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border relative ${
                   isSelected
-                    ? 'bg-black text-white font-bold border-black shadow-xs'
-                    : 'bg-white border-[#e2dfd2] text-zinc-800 hover:bg-[#f7f5ee]'
+                    ? `${template.activeTabBg} ${template.activeTabText} border-transparent ${template.cardGlow}`
+                    : `${template.bgCard} ${template.borderMain} ${template.textPrimary} hover:opacity-90`
                 }`}
               >
                 {/* Avatar */}

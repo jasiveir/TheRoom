@@ -2,6 +2,7 @@ import React from 'react';
 import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Terminal } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -20,6 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { isAdmin } = useAuth();
   const { unreadCount } = useNotifications();
+  const { template } = useLayoutTemplate();
 
   const navItems = [
     {
@@ -58,14 +60,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }
 
   return (
-    <aside id="app-sidebar" className="w-full md:w-64 bg-[#fbfaf6] border-r border-[#e2dfd2] flex flex-col justify-between transition-colors shrink-0 h-full">
+    <aside id="app-sidebar" className={`w-full md:w-64 ${template.bgSidebar} border-r ${template.borderMain} flex flex-col justify-between transition-colors shrink-0 h-full`}>
       <div className="p-3.5 space-y-4">
+        {/* Quick Actions Header Badge */}
+        {template.id === 'apple-glass' && (
+          <div className="flex items-center justify-between px-1 text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
+            <span>[ QUICK ACTIONS ]</span>
+            <span className="w-2 h-2 rounded-full animate-spectrum-bg shrink-0" />
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-2">
           <button
             id="sidebar-add-friend-btn"
             onClick={onOpenAddFriend}
-            className="flex items-center justify-center gap-1.5 p-2.5 bg-white text-black hover:bg-black hover:text-white rounded-xl text-xs font-bold transition-all border border-[#e2dfd2] shadow-xs active:scale-95 uppercase tracking-wider cursor-pointer"
+            className={`flex items-center justify-center gap-1.5 p-2.5 ${template.bgCard} ${template.textPrimary} hover:opacity-90 rounded-xl text-xs font-bold transition-all border ${template.borderMain} ${template.cardGlow} active:scale-95 uppercase tracking-wider cursor-pointer ${
+              template.id === 'apple-glass' ? 'hover:animate-spectrum-border' : ''
+            }`}
           >
             <UserPlus className="w-4 h-4" />
             <span>Add Friend</span>
@@ -74,12 +86,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             id="sidebar-create-group-btn"
             onClick={onOpenCreateGroup}
-            className="flex items-center justify-center gap-1.5 p-2.5 bg-white text-black hover:bg-black hover:text-white rounded-xl text-xs font-bold transition-all border border-[#e2dfd2] shadow-xs active:scale-95 uppercase tracking-wider cursor-pointer"
+            className={`flex items-center justify-center gap-1.5 p-2.5 ${template.bgCard} ${template.textPrimary} hover:opacity-90 rounded-xl text-xs font-bold transition-all border ${template.borderMain} ${template.cardGlow} active:scale-95 uppercase tracking-wider cursor-pointer ${
+              template.id === 'apple-glass' ? 'hover:animate-spectrum-border' : ''
+            }`}
           >
             <PlusCircle className="w-4 h-4" />
             <span>New Group</span>
           </button>
         </div>
+
+        {/* Navigation Section Header Badge */}
+        {template.id === 'apple-glass' && (
+          <div className="flex items-center justify-between px-1 pt-2 text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest">
+            <span>[ NAVIGATION PANELS ]</span>
+            <span className="text-[9px] animate-spectrum-text font-black">● LIVE</span>
+          </div>
+        )}
 
         {/* Navigation list */}
         <nav className="space-y-1.5 pt-1">
@@ -94,19 +116,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => setActiveTab(item.id)}
                 className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all uppercase tracking-wider border cursor-pointer ${
                   isActive
-                    ? 'bg-black border-black text-white'
-                    : 'bg-white border-[#e2dfd2] text-zinc-700 hover:bg-black/5 hover:text-black'
+                    ? `${template.activeTabBg} ${template.activeTabText} ${template.id === 'apple-glass' ? 'animate-spectrum-border border-2 shadow-[3px_3px_0px_0px_rgba(0,0,0,0.9)]' : 'border-transparent'} ${template.cardGlow}`
+                    : `${template.bgCard} ${template.borderMain} hover:border-zinc-500 ${template.textSecondary} hover:${template.textPrimary}`
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-zinc-600'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? template.activeTabText : template.textSecondary}`} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge > 0 && (
                   <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
                     isActive
-                      ? 'bg-white text-black'
-                      : 'bg-black text-white'
+                      ? 'bg-black text-white'
+                      : `${template.activeTabBg} ${template.activeTabText}`
                   }`}>
                     {item.badge}
                   </span>
@@ -117,9 +139,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      <div className="p-3.5 border-t border-[#e2dfd2] text-[10px] text-zinc-500 text-center font-mono flex items-center justify-center gap-1.5">
+      <div className={`p-3.5 border-t ${template.borderMain} text-[10px] ${template.textSecondary} text-center font-mono flex items-center justify-center gap-1.5`}>
         <img src="/logos/TheRoom.jpg" alt="TheRoom" className="w-3.5 h-3.5 rounded object-cover" />
-        <span>THEROOM // SECURE</span>
+        <span className={template.id === 'apple-glass' ? 'animate-spectrum-text font-bold' : ''}>
+          THEROOM // {template.badge}
+        </span>
       </div>
     </aside>
   );

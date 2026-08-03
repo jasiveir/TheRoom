@@ -83,4 +83,147 @@
   animation: matrix-cursor-blink 1s step-end infinite;
 }
 
+/* Chrome Vyse Auto-Changing Ambient Spectrum Color Animations */
+@keyframes spectrum-border-cycle {
+  0%, 100% {
+    border-color: #f97316; /* Orange */
+    box-shadow: 0 0 12px rgba(249, 115, 22, 0.45);
+  }
+  16.6% {
+    border-color: #22c55e; /* Green */
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.45);
+  }
+  33.3% {
+    border-color: #eab308; /* Yellow */
+    box-shadow: 0 0 12px rgba(234, 179, 8, 0.45);
+  }
+  50% {
+    border-color: #3b82f6; /* Blue */
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.45);
+  }
+  66.6% {
+    border-color: #ec4899; /* Pink */
+    box-shadow: 0 0 12px rgba(236, 72, 153, 0.45);
+  }
+  83.3% {
+    border-color: #a855f7; /* Purple */
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.45);
+  }
+}
+
+@keyframes spectrum-text-cycle {
+  0%, 100% {
+    color: #f97316;
+  }
+  16.6% {
+    color: #22c55e;
+  }
+  33.3% {
+    color: #eab308;
+  }
+  50% {
+    color: #3b82f6;
+  }
+  66.6% {
+    color: #ec4899;
+  }
+  83.3% {
+    color: #a855f7;
+  }
+}
+
+@keyframes spectrum-bg-cycle {
+  0%, 100% {
+    background-color: #f97316;
+    color: #ffffff;
+  }
+  16.6% {
+    background-color: #22c55e;
+    color: #ffffff;
+  }
+  33.3% {
+    background-color: #eab308;
+    color: #000000;
+  }
+  50% {
+    background-color: #3b82f6;
+    color: #ffffff;
+  }
+  66.6% {
+    background-color: #ec4899;
+    color: #ffffff;
+  }
+  83.3% {
+    background-color: #a855f7;
+    color: #ffffff;
+  }
+}
+
+@keyframes spectrum-glow-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.04);
+  }
+}
+
+.animate-spectrum-border {
+  animation: spectrum-border-cycle 6s linear infinite;
+}
+
+.animate-spectrum-text {
+  animation: spectrum-text-cycle 6s linear infinite;
+}
+
+.animate-spectrum-bg {
+  animation: spectrum-bg-cycle 6s linear infinite;
+}
+
+.animate-spectrum-glow {
+  animation: spectrum-glow-pulse 5s ease-in-out infinite alternate;
+}
+
+/* Retro Badge & Panel Outlines */
+.retro-panel-outline {
+  border: 1.5px solid #121212;
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.9);
+  position: relative;
+}
+
+.retro-panel-outline-active {
+  border: 2px solid #f97316;
+  animation: spectrum-border-cycle 6s linear infinite;
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.9);
+}
+
+.retro-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #121212;
+  background-color: #121212;
+  color: #ffffff;
+}
+
+.retro-badge-spectrum {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1.5px solid #121212;
+  animation: spectrum-bg-cycle 6s linear infinite;
+  box-shadow: 2px 2px 0px 0px rgba(0,0,0,0.8);
+}
+
+
 

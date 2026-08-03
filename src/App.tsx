@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { LayoutTemplateProvider } from './context/LayoutTemplateContext';
 import { MatrixTransitionProvider, useMatrixTransition } from './context/MatrixTransitionContext';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
@@ -61,12 +62,13 @@ const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 export default function App() {
   return (
     <ThemeProvider>
-      <MatrixTransitionProvider>
-        <AuthProvider>
-          <NotificationProvider>
-            <BrowserRouter>
-              <MatrixRouteListener />
-              <Routes>
+      <LayoutTemplateProvider>
+        <MatrixTransitionProvider>
+          <AuthProvider>
+            <NotificationProvider>
+              <BrowserRouter>
+                <MatrixRouteListener />
+                <Routes>
                 {/* Public Routes */}
                 <Route
                   path="/welcome"
@@ -150,6 +152,7 @@ export default function App() {
           </NotificationProvider>
         </AuthProvider>
       </MatrixTransitionProvider>
-    </ThemeProvider>
-  );
+    </LayoutTemplateProvider>
+  </ThemeProvider>
+);
 }

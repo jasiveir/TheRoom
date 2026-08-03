@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { 
   Shield, 
   Bell, 
@@ -15,7 +16,8 @@ import {
   Menu,
   Terminal,
   Activity,
-  Cpu
+  Cpu,
+  Sparkles
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -38,17 +40,18 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { userProfile, logOut, isAdmin } = useAuth();
   const { unreadCount, soundEnabled, setSoundEnabled } = useNotifications();
   const { darkMode, toggleDarkMode } = useTheme();
+  const { template } = useLayoutTemplate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   return (
-    <header id="app-header" className="h-16 bg-[#fbfaf6] border-b border-[#e2dfd2] px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-30 transition-colors shadow-xs w-full max-w-full">
+    <header id="app-header" className={`h-16 ${template.bgNavbar} border-b ${template.borderMain} px-2.5 sm:px-4 flex items-center justify-between sticky top-0 z-30 transition-colors shadow-xs w-full max-w-full`}>
       {/* Left section: Mobile/Tablet menu toggle + Brand Logo */}
       <div className="flex items-center gap-1.5 sm:gap-3 min-w-0 shrink">
         {onToggleSidebarMobile && (
           <button
             id="mobile-sidebar-toggle"
             onClick={onToggleSidebarMobile}
-            className="lg:hidden p-1.5 sm:p-2 rounded-lg text-black hover:bg-black/5 border border-[#e2dfd2] transition-colors cursor-pointer shrink-0"
+            className={`lg:hidden p-1.5 sm:p-2 rounded-lg ${template.textPrimary} hover:bg-white/10 border ${template.borderMain} transition-colors cursor-pointer shrink-0`}
             title="Toggle Menu"
           >
             <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -59,17 +62,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => setActiveTab('chats')} 
           className="flex items-center gap-1.5 sm:gap-2 cursor-pointer select-none group min-w-0"
         >
-          <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl bg-black border border-zinc-800 flex items-center justify-center font-bold text-base transition-transform group-hover:scale-105 shrink-0 overflow-hidden shadow-xs">
+          <div className={`w-7 h-7 sm:w-9 sm:h-9 rounded-xl ${template.bgCard} border ${template.borderMain} flex items-center justify-center font-bold text-base transition-transform group-hover:scale-105 shrink-0 overflow-hidden shadow-xs`}>
             <img src="/logos/TheRoom.jpg" alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1">
-              <h1 className="font-extrabold text-black tracking-wider leading-none text-xs sm:text-base md:text-lg uppercase truncate">
+            <div className="flex items-center gap-1.5">
+              <h1 className={`font-extrabold ${template.textPrimary} tracking-wider leading-none text-xs sm:text-base md:text-lg uppercase truncate`}>
                 THEROOM
               </h1>
+              {template.id === 'apple-glass' ? (
+                <span className="retro-badge-spectrum shrink-0">
+                  CHROME VYSE
+                </span>
+              ) : template.id !== 'classic' && (
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${template.activeTabBg} ${template.activeTabText} shrink-0`}>
+                  {template.badge}
+                </span>
+              )}
             </div>
-            <p className="text-[10px] text-zinc-500 font-mono hidden md:flex items-center gap-1 truncate">
-              <Activity className="w-3 h-3 text-emerald-600 shrink-0" />
+            <p className={`text-[10px] ${template.textSecondary} font-mono hidden md:flex items-center gap-1 truncate`}>
+              <Activity className={`w-3 h-3 ${template.accentText} shrink-0`} />
               <span>SECURE PRIVATE CHAT</span>
             </p>
           </div>
@@ -81,12 +93,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="friend-requests-nav-btn"
           onClick={onOpenRequests}
-          className="relative p-1.5 sm:p-2 rounded-lg text-black border border-[#e2dfd2] bg-white hover:bg-black/5 transition-all cursor-pointer"
+          className={`relative p-1.5 sm:p-2 rounded-lg ${template.textPrimary} border ${template.borderMain} ${template.bgCard} hover:opacity-90 transition-all cursor-pointer`}
           title="Friend Requests"
         >
           <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
           {pendingRequestsCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-4 sm:min-w-5 h-4 sm:h-5 bg-black text-white text-[9px] sm:text-[10px] font-extrabold rounded-full flex items-center justify-center px-0.5 sm:px-1">
+            <span className={`absolute -top-1 -right-1 min-w-4 sm:min-w-5 h-4 sm:h-5 ${template.activeTabBg} ${template.activeTabText} text-[9px] sm:text-[10px] font-extrabold rounded-full flex items-center justify-center px-0.5 sm:px-1`}>
               {pendingRequestsCount}
             </span>
           )}
@@ -95,14 +107,16 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="notifications-nav-btn"
           onClick={() => setActiveTab('notifications')}
-          className={`relative p-1.5 sm:p-2 rounded-lg text-black border border-[#e2dfd2] hover:bg-black/5 transition-all cursor-pointer ${
-            activeTab === 'notifications' ? 'bg-black text-white border-black' : 'bg-white'
+          className={`relative p-1.5 sm:p-2 rounded-lg border transition-all cursor-pointer ${
+            activeTab === 'notifications'
+              ? `${template.activeTabBg} ${template.activeTabText} border-transparent`
+              : `${template.bgCard} ${template.borderMain} ${template.textPrimary} hover:opacity-90`
           }`}
           title="Notifications"
         >
           <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 min-w-4 sm:min-w-5 h-4 sm:h-5 bg-black text-white text-[9px] sm:text-[10px] font-extrabold rounded-full flex items-center justify-center px-0.5 sm:px-1">
+            <span className={`absolute -top-1 -right-1 min-w-4 sm:min-w-5 h-4 sm:h-5 ${template.activeTabBg} ${template.activeTabText} text-[9px] sm:text-[10px] font-extrabold rounded-full flex items-center justify-center px-0.5 sm:px-1`}>
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -111,10 +125,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           id="sound-toggle-btn"
           onClick={() => setSoundEnabled(!soundEnabled)}
-          className="p-1.5 sm:p-2 rounded-lg text-black border border-[#e2dfd2] bg-white hover:bg-black/5 transition-colors cursor-pointer"
+          className={`p-1.5 sm:p-2 rounded-lg ${template.textPrimary} border ${template.borderMain} ${template.bgCard} hover:opacity-90 transition-colors cursor-pointer`}
           title={soundEnabled ? "Audio Active" : "Audio Muted"}
         >
-          {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-black" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" />}
+          {soundEnabled ? <Volume2 className={`w-4 h-4 sm:w-5 sm:h-5 ${template.textPrimary}`} /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-400" />}
         </button>
 
         {isAdmin && (
@@ -136,7 +150,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           <button
             id="user-avatar-btn"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
-            className="flex items-center gap-2 p-1 rounded-lg border border-[#e2dfd2] hover:border-black transition-all bg-white"
+            className={`flex items-center gap-2 p-1 rounded-lg border ${template.borderMain} ${template.bgCard} hover:opacity-90 transition-all`}
           >
             {userProfile?.photoURL ? (
               <img 

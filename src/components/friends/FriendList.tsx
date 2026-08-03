@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { UserProfile, Chat } from '../../types';
 import { Search, MessageSquare, UserX, Users, Hash, Clock } from 'lucide-react';
 import { getOrCreatePrivateChat } from '../../lib/chatService';
@@ -158,18 +159,29 @@ export const FriendList: React.FC<FriendListProps> = ({
     return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
+  const { template } = useLayoutTemplate();
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-black p-4 sm:p-6 overflow-y-auto">
+    <div className="flex-1 flex flex-col h-full bg-black text-white p-4 sm:p-6 overflow-y-auto transition-colors">
       {/* Header & Search */}
       <div className="mb-6 space-y-4">
-        <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Users className="w-5 h-5 text-white" />
-            <span>My Friends List</span>
-          </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Real friends connected via unique Friend Codes
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-white flex items-center gap-2 tracking-wide">
+                <Users className="w-5 h-5 text-white" />
+                <span>My Friends List</span>
+              </h2>
+              {template.id === 'apple-glass' && (
+                <span className="retro-badge-spectrum ml-2">
+                  NODES // FRIENDS
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Real friends connected via unique Friend Codes
+            </p>
+          </div>
         </div>
 
         {/* Username Search Filter WITHIN Friend List */}
@@ -179,9 +191,11 @@ export const FriendList: React.FC<FriendListProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search your friends by username..."
-            className="w-full pl-9 pr-4 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-xs text-white placeholder-zinc-400 focus:outline-none focus:border-white shadow-xs"
+            className={`w-full pl-9 pr-4 py-2.5 bg-zinc-900 border-2 border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none ${
+              template.id === 'apple-glass' ? 'focus:animate-spectrum-border' : 'focus:border-white'
+            } shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}
           />
-          <Search className="w-4 h-4 text-white absolute left-3 top-3 pointer-events-none" />
+          <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-3.5 pointer-events-none" />
         </div>
       </div>
 
@@ -191,8 +205,8 @@ export const FriendList: React.FC<FriendListProps> = ({
           <span className="animate-spin rounded-full h-8 w-8 border-3 border-white border-t-transparent" />
         </div>
       ) : filteredFriends.length === 0 ? (
-        <div className="text-center py-12 px-4 bg-zinc-900 rounded-2xl border border-zinc-800">
-          <Users className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+        <div className="text-center py-12 px-4 bg-zinc-900 rounded-2xl border-2 border-zinc-800 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+          <Users className="w-10 h-10 text-zinc-500 mx-auto mb-3" />
           <h3 className="font-bold text-white text-sm">
             {searchQuery ? 'No matching friends found' : 'Your Friend List is empty'}
           </h3>
@@ -207,7 +221,9 @@ export const FriendList: React.FC<FriendListProps> = ({
           {filteredFriends.map((friend) => (
             <div
               key={friend.uid}
-              className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-xs hover:border-zinc-600 transition-all flex flex-col justify-between space-y-3"
+              className={`p-4 bg-zinc-900 border-2 border-zinc-800 rounded-2xl shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] ${
+                template.id === 'apple-glass' ? 'hover:animate-spectrum-border' : 'hover:border-zinc-500'
+              } transition-all flex flex-col justify-between space-y-3`}
             >
               <div 
                 onClick={() => onOpenProfile(friend)}
@@ -218,17 +234,21 @@ export const FriendList: React.FC<FriendListProps> = ({
                     <img
                       src={friend.photoURL}
                       alt={friend.fullName || friend.username || 'User'}
-                      className="w-12 h-12 rounded-full object-cover border border-zinc-700"
+                      className="w-12 h-12 rounded-full object-cover border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className="w-12 h-12 rounded-full bg-white text-black font-bold text-lg flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-black text-white font-bold text-lg flex items-center justify-center border-2 border-zinc-700 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
                       {(friend.fullName?.[0] || friend.username?.[0] || 'U').toUpperCase()}
                     </div>
                   )}
                   <span
-                    className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-zinc-900 ${
-                      friend.status === 'online' ? 'bg-white ring-1 ring-zinc-500' : 'bg-zinc-600'
+                    className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-black ${
+                      friend.status === 'online'
+                        ? template.id === 'apple-glass'
+                          ? 'animate-spectrum-bg'
+                          : 'bg-emerald-500 ring-1 ring-zinc-400'
+                        : 'bg-zinc-600'
                     }`}
                   />
                 </div>
@@ -248,7 +268,7 @@ export const FriendList: React.FC<FriendListProps> = ({
               </div>
 
               {/* Status / Last Seen */}
-              <div className="text-[11px] text-zinc-500 flex items-center gap-1 border-t border-zinc-800/80 pt-2">
+              <div className="text-[11px] text-zinc-400 flex items-center gap-1 border-t border-zinc-800 pt-2">
                 <Clock className="w-3 h-3 text-zinc-500" />
                 <span>
                   {friend.status === 'online' ? 'Active now' : `Last seen ${formatLastSeen(friend.lastSeen)}`}
@@ -259,7 +279,11 @@ export const FriendList: React.FC<FriendListProps> = ({
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={() => handleStartChat(friend)}
-                  className="flex-1 py-2 bg-white hover:bg-zinc-200 text-black text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                  className={`flex-1 py-2 ${
+                    template.id === 'apple-glass'
+                      ? 'animate-spectrum-bg hover:opacity-90 font-black'
+                      : 'bg-white hover:bg-zinc-200 text-black font-extrabold'
+                  } text-xs rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] flex items-center justify-center gap-1.5 transition-colors cursor-pointer`}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Message</span>
@@ -267,7 +291,7 @@ export const FriendList: React.FC<FriendListProps> = ({
 
                 <button
                   onClick={() => onOpenUnfriend(friend)}
-                  className="p-2 bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white rounded-xl transition-colors border border-zinc-700"
+                  className="p-2 bg-zinc-950 text-zinc-400 hover:text-white hover:border-rose-500 rounded-xl transition-colors border-2 border-zinc-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
                   title="Unfriend User"
                 >
                   <UserX className="w-4 h-4" />

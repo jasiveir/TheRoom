@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { Chat, Message, UserProfile } from '../../types';
 import { sendMessage, markChatAsRead, markMessageRead, setTypingState, deleteChatById, deleteMessageForEveryone } from '../../lib/chatService';
 import { filterValidMessages, purgeExpiredMessagesForChat } from '../../lib/messageCleanup';
@@ -293,10 +294,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const otherDetail = otherUserId ? chat.memberDetails?.[otherUserId] : null;
 
+  const { template } = useLayoutTemplate();
+
   return (
-    <div id="chat-view-container" className="flex-1 flex flex-col h-full bg-white transition-colors relative overflow-hidden">
+    <div id="chat-view-container" className={`flex-1 flex flex-col h-full ${template.bgMain} transition-colors relative overflow-hidden`}>
       {/* Chat Header */}
-      <div className="h-16 px-4 bg-white border-b border-[#e2dfd2] flex items-center justify-between shrink-0 z-10 shadow-xs">
+      <div className={`h-16 px-4 ${template.bgSidebar} border-b ${template.borderMain} flex items-center justify-between shrink-0 z-10 shadow-xs`}>
         <div className="flex items-center gap-3 min-w-0">
           {onBackMobile && (
             <button
@@ -647,11 +650,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
       )}
 
       {/* Message Input Footer */}
-      <form onSubmit={handleSend} className="p-3 bg-white border-t border-[#e2dfd2] flex items-center gap-1.5 sm:gap-2 shrink-0">
+      <form onSubmit={handleSend} className={`p-3 ${template.bgSidebar} border-t ${template.borderMain} flex items-center gap-1.5 sm:gap-2 shrink-0`}>
         <button
           type="button"
           onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-          className="p-2 rounded-lg text-zinc-600 hover:text-black hover:bg-[#f7f5ee] transition-colors cursor-pointer"
+          className={`p-2 rounded-lg ${template.textSecondary} hover:${template.textPrimary} hover:bg-black/5 transition-colors cursor-pointer`}
           title="Add Emoji"
         >
           <Smile className="w-5 h-5" />
@@ -660,7 +663,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded-lg text-zinc-600 hover:text-black hover:bg-[#f7f5ee] transition-colors cursor-pointer"
+          className={`p-2 rounded-lg ${template.textSecondary} hover:${template.textPrimary} hover:bg-black/5 transition-colors cursor-pointer`}
           title="Upload Image from Gallery"
         >
           <ImageIcon className="w-5 h-5" />
@@ -675,7 +678,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           className={`p-2 rounded-lg transition-colors cursor-pointer ${
             disappearingDuration > 0
               ? 'bg-rose-100 text-rose-700 border border-rose-300'
-              : 'text-zinc-600 hover:text-black hover:bg-[#f7f5ee]'
+              : `${template.textSecondary} hover:${template.textPrimary} hover:bg-black/5`
           }`}
           title="Disappearing Message Timer"
         >
@@ -691,7 +694,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           className={`p-2 rounded-lg transition-colors cursor-pointer ${
             scheduledFor !== null
               ? 'bg-amber-100 text-amber-800 border border-amber-300'
-              : 'text-zinc-600 hover:text-black hover:bg-[#f7f5ee]'
+              : `${template.textSecondary} hover:${template.textPrimary} hover:bg-black/5`
           }`}
           title="Schedule Message Delivery"
         >
@@ -711,13 +714,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
               ? 'Scheduled Message...'
               : 'Type message...'
           }
-          className="flex-1 min-w-0 px-3.5 py-2.5 bg-[#f7f5ee] border border-[#e2dfd2] rounded-xl text-xs text-black placeholder-zinc-400 focus:outline-none focus:border-black font-sans"
+          className={`flex-1 min-w-0 px-3.5 py-2.5 ${template.bgCard} border ${template.borderMain} rounded-xl text-xs ${template.textPrimary} placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 font-sans`}
         />
 
         <button
           type="submit"
           disabled={!textInput.trim() && !mediaUrlInput.trim() && !selectedGalleryImage}
-          className="p-2.5 bg-black hover:bg-zinc-800 disabled:opacity-30 text-white rounded-xl font-bold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+          className={`p-2.5 ${template.activeTabBg} ${template.activeTabText} disabled:opacity-30 rounded-xl font-bold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0`}
           title="Send Message"
         >
           <Send className="w-4 h-4 text-white font-extrabold" />

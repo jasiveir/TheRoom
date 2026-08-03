@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/fire
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useMatrixTransition } from '../../context/MatrixTransitionContext';
+import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { getOrCreatePrivateChat } from '../../lib/chatService';
 import { Navbar } from './Navbar';
 import { Sidebar } from './Sidebar';
@@ -24,6 +25,7 @@ import { MessageSquare } from 'lucide-react';
 export const AppLayout: React.FC = () => {
   const { userProfile } = useAuth();
   const { triggerMatrixTransition } = useMatrixTransition();
+  const { template } = useLayoutTemplate();
   const [activeTab, setActiveTab] = useState<string>('chats');
   const [activeChat, setActiveChat] = useState<Chat | null>(null);
 
@@ -80,7 +82,25 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="h-dvh w-full bg-[#fbfaf6] flex flex-col overflow-hidden text-black font-sans transition-colors">
+    <div className={`h-dvh w-full ${template.bgMain} flex flex-col overflow-hidden ${template.textPrimary} font-sans transition-colors relative`}>
+      {/* Ambient Spectrum Light Glows for Chrome Vyse / Ambient Themes */}
+      {(template.isGlass || template.id === 'apple-glass') && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          {/* Top Left Bright Emerald Green & Lime Circle (matching top logo circle) */}
+          <div className="absolute -top-32 -left-20 w-[650px] h-[650px] bg-emerald-400/25 rounded-full blur-[100px] animate-spectrum-glow" />
+          {/* Top Center-Right Vivid Orange & Crimson Glow */}
+          <div className="absolute -top-20 right-1/4 w-[700px] h-[700px] bg-gradient-to-br from-orange-400/30 via-rose-500/20 to-transparent rounded-full blur-[110px] animate-spectrum-glow" />
+          {/* Right Center Electric Blue Glow */}
+          <div className="absolute top-1/3 -right-20 w-[600px] h-[600px] bg-blue-500/25 rounded-full blur-[100px] animate-spectrum-glow" />
+          {/* Bottom Right Warm Amber / Yellow Glow */}
+          <div className="absolute -bottom-20 right-10 w-[650px] h-[650px] bg-amber-400/25 rounded-full blur-[110px] animate-spectrum-glow" />
+          {/* Bottom Left Hot Pink & Fuchsia Glow */}
+          <div className="absolute -bottom-32 left-10 w-[700px] h-[700px] bg-pink-500/30 rounded-full blur-[110px] animate-spectrum-glow" />
+          {/* Center Rich Purple Accent (logo central shape) */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] animate-spectrum-glow" />
+        </div>
+      )}
+
       {/* Navbar */}
       <Navbar
         onOpenAddFriend={handleOpenAddFriend}
@@ -92,7 +112,7 @@ export const AppLayout: React.FC = () => {
       />
 
       {/* Main Workspace Body */}
-      <div className="flex-1 flex overflow-hidden relative bg-[#fbfaf6]">
+      <div className={`flex-1 flex overflow-hidden relative ${template.bgMain}`}>
         {/* Responsive Sidebar (Drawer on mobile/tablet < lg, sticky on lg+) */}
         <aside className={`
           fixed lg:relative inset-y-0 left-0 z-40 lg:z-auto w-64 transform transition-transform duration-200 ease-in-out lg:translate-x-0 h-full shrink-0
@@ -125,11 +145,11 @@ export const AppLayout: React.FC = () => {
         )}
 
         {/* Main Content Area */}
-        <main className="flex-1 flex overflow-hidden min-w-0 bg-[#fbfaf6]">
+        <main className={`flex-1 flex overflow-hidden min-w-0 ${template.bgMain}`}>
           {activeTab === 'chats' && (
-            <div className="flex-1 flex h-full overflow-hidden w-full bg-[#fbfaf6]">
+            <div className={`flex-1 flex h-full overflow-hidden w-full ${template.bgMain}`}>
               {/* Chats List Column */}
-              <div className={`h-full w-full lg:w-80 border-r border-[#e2dfd2] shrink-0 ${activeChat ? 'hidden lg:block' : 'block'}`}>
+              <div className={`h-full w-full lg:w-80 border-r ${template.borderMain} shrink-0 ${activeChat ? 'hidden lg:block' : 'block'}`}>
                 <ChatsList
                   activeChatId={activeChat?.id || null}
                   onSelectChat={handleSelectChat}
@@ -139,7 +159,7 @@ export const AppLayout: React.FC = () => {
               </div>
 
               {/* Chat Conversation Column */}
-              <div className={`flex-1 h-full min-w-0 bg-[#fbfaf6] ${!activeChat ? 'hidden lg:flex' : 'flex'}`}>
+              <div className={`flex-1 h-full min-w-0 ${template.bgMain} ${!activeChat ? 'hidden lg:flex' : 'flex'}`}>
                 {activeChat ? (
                   <ChatView
                     chat={activeChat}
@@ -150,13 +170,16 @@ export const AppLayout: React.FC = () => {
                     onOpenUnfriendModal={(user) => setUnfriendTarget(user)}
                   />
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-600 space-y-3 bg-[#fbfaf6]">
-                    <div className="w-16 h-16 rounded-3xl bg-white border border-[#e2dfd2] text-black flex items-center justify-center shadow-xs">
+                  <div className={`flex-1 flex flex-col items-center justify-center p-6 text-center ${template.textSecondary} space-y-3 ${template.bgMain}`}>
+                    <div className={`w-16 h-16 rounded-3xl ${template.bgCard} border ${template.borderMain} ${template.textPrimary} flex items-center justify-center ${template.cardGlow}`}>
                       <MessageSquare className="w-8 h-8" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-black text-sm uppercase tracking-wider">Select a Conversation</h3>
-                      <p className="text-xs text-zinc-500 mt-1 max-w-xs">
+                      <h3 className={`font-bold ${template.textPrimary} text-sm uppercase tracking-wider flex items-center justify-center gap-1.5`}>
+                        <span>{template.symbol}</span>
+                        <span>Select a Conversation</span>
+                      </h3>
+                      <p className={`text-xs ${template.textSecondary} mt-1 max-w-xs`}>
                         Choose an active chat from the sidebar or start a new conversation with a friend.
                       </p>
                     </div>

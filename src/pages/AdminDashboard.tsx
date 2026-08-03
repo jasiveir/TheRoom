@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth, PREDEFINED_ADMIN_EMAIL } from '../context/AuthContext';
+import { useLayoutTemplate } from '../context/LayoutTemplateContext';
 import { UserProfile, AccountStatus } from '../types';
 import { 
   wipeAllChatMessages, 
@@ -46,6 +47,7 @@ import {
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
+  const { template } = useLayoutTemplate();
   const { userProfile, isAdmin, isMainAdmin, resetPassword } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -409,12 +411,19 @@ export const AdminDashboard: React.FC = () => {
     <div className="flex-1 flex flex-col h-full bg-[#fbfaf6] text-black p-4 sm:p-6 overflow-y-auto font-mono">
       <div className="max-w-6xl mx-auto w-full space-y-6">
         {/* Admin Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#e2dfd2]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b-2 border-[#e2dfd2]">
           <div>
-            <h2 className="text-xl font-extrabold text-black flex items-center gap-2">
-              <Shield className="w-5 h-5 text-black" />
-              <span>ADMINISTRATOR CONTROL CONSOLE</span>
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-black flex items-center gap-2">
+                <Shield className="w-5 h-5 text-black" />
+                <span>ADMINISTRATOR CONTROL CONSOLE</span>
+              </h2>
+              {template.id === 'apple-glass' && (
+                <span className="retro-badge-spectrum ml-2">
+                  ADMIN CONSOLE
+                </span>
+              )}
+            </div>
             <p className="text-xs text-zinc-600 mt-0.5">
               Account activation, blocking, deactivation, selective deletion, and account wiping tools
             </p>
@@ -422,12 +431,14 @@ export const AdminDashboard: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowWipeAccountsModal(true)}
-              className="px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+              className="px-3.5 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 shrink-0 cursor-pointer border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]"
             >
               <AlertOctagon className="w-4 h-4 text-white" />
               <span>Wipe All Accounts</span>
             </button>
-            <span className="px-3 py-1 bg-black text-white text-xs font-mono font-bold rounded-full">
+            <span className={`px-3 py-1 ${
+              template.id === 'apple-glass' ? 'animate-spectrum-bg text-black font-black' : 'bg-black text-white font-extrabold'
+            } text-xs font-mono rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
               {isMainAdmin ? 'Main Admin' : 'Moderator'}
             </span>
           </div>
