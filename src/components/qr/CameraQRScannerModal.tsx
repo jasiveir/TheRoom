@@ -75,8 +75,7 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
           {
             fps: 15,
             qrbox: { width: 220, height: 220 },
-            aspectRatio: 1.0,
-            facingMode: 'environment'
+            aspectRatio: 1.0
           },
           (decodedText) => {
             playNotificationSound();

@@ -5,6 +5,37 @@ import { useAuth } from './AuthContext';
 import { AppNotification } from '../types';
 import { playNotificationSound, playBellSound } from '../lib/audio';
 
+export const triggerOSNotification = (title: string, body: string) => {
+  try {
+    // 1. Capacitor LocalNotifications (APK native mode)
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+      (window as any).Capacitor.Plugins.LocalNotifications.schedule({
+        notifications: [{
+          title: title || 'TheRoom Signal',
+          body: body || 'New encrypted message received',
+          id: Math.floor(Math.random() * 1000000),
+          schedule: { at: new Date(Date.now() + 100) },
+          sound: 'glitch_alert.wav',
+          smallIcon: 'ic_stat_icon_config_sample'
+        }]
+      }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
+    }
+
+    // 2. Standard Web Notification API (Browser / PWA)
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(title || 'TheRoom', {
+        body: body || 'New message received',
+        icon: '/logos/icon-192.png',
+        badge: '/logos/icon-192.png',
+        tag: 'theroom-notif-' + Date.now(),
+        silent: false
+      });
+    }
+  } catch (err) {
+    console.warn('Notice in triggerOSNotification:', err);
+  }
+};
+
 interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
@@ -81,14 +112,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return timeB - timeA;
       });
 
-      // If new unread item added after initial snapshot, check type and play sound
-      if (!isInitialLoad && snapshot.docChanges().some(change => change.type === 'added')) {
-        const hasNewMessage = snapshot.docChanges().some(c => c.type === 'added' && c.doc.data().type === 'new_message');
-        if (hasNewMessage) {
-          playBell();
-        } else {
-          playChime();
-        }
+      // If new unread item added after initial snapshot, trigger sounds & OS background notifications
+      if (!isInitialLoad) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const data = change.doc.data();
+            const notifTitle = data.title || 'TheRoom Signal';
+            const notifBody = data.body || 'New message received';
+
+            if (data.type === 'new_message') {
+              playBell();
+            } else {
+              playChime();
+            }
+
+            // Dispatch OS level notification preview
+            triggerOSNotification(notifTitle, notifBody);
+          }
+        });
       }
 
       isInitialLoad = false;

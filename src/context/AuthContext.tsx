@@ -9,7 +9,10 @@ import {
   sendPasswordResetEmail,
   updatePassword as firebaseUpdatePassword,
   GoogleAuthProvider,
-  signInWithPopup
+  signInWithPopup,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  confirmPasswordReset
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
@@ -39,6 +42,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updateProfileData: (updates: Partial<UserProfile>) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
+  changePasswordWithOldPassword: (oldPassword: string, newPassword: string) => Promise<void>;
+  confirmPasswordResetWithCode: (oobCode: string, newPassword: string) => Promise<void>;
   isAdmin: boolean;
   isMainAdmin: boolean;
   isModerator: boolean;
@@ -666,7 +671,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!isGoogleEmail(cleanEmail)) {
       throw new Error('Account not identified. Password reset is only supported for registered Google email addresses (@gmail.com).');
     }
-    await sendPasswordResetEmail(auth, cleanEmail);
+
+    const actionCodeSettings = {
+      url: `${window.location.origin}/reset-password`,
+      handleCodeInApp: true,
+    };
+
+    try {
+      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+    } catch (err: any) {
+      console.warn('Firebase sendPasswordResetEmail error:', err);
+      // Fallback if actionCodeSettings fails or default reset email fails
+      if (err.code === 'auth/invalid-continue-uri' || err.code === 'auth/unauthorized-domain') {
+        await sendPasswordResetEmail(auth, cleanEmail);
+      } else {
+        throw err;
+      }
+    }
   };
 
   const updateProfileData = async (updates: Partial<UserProfile>) => {
@@ -691,6 +712,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const changePassword = async (newPassword: string) => {
     if (!auth.currentUser) throw new Error('No authenticated user');
     await firebaseUpdatePassword(auth.currentUser, newPassword);
+  };
+
+  const changePasswordWithOldPassword = async (oldPassword: string, newPassword: string) => {
+    const currentUser = auth.currentUser;
+    const userEmail = currentUser?.email || userProfile?.email;
+
+    if (!currentUser || !userEmail) {
+      throw new Error('No authenticated user session found. Please sign in first.');
+    }
+
+    if (!oldPassword) {
+      throw new Error('Please enter your current password.');
+    }
+
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long.');
+    }
+
+    try {
+      const credential = EmailAuthProvider.credential(userEmail, oldPassword);
+      await reauthenticateWithCredential(currentUser, credential);
+    } catch (reauthErr: any) {
+      console.error('Reauthentication error:', reauthErr);
+      if (reauthErr.code === 'auth/wrong-password' || reauthErr.code === 'auth/invalid-credential') {
+        throw new Error('Incorrect current password. Please check your credentials and try again.');
+      }
+      throw new Error('Current password verification failed: ' + (reauthErr.message || 'Invalid credentials'));
+    }
+
+    await firebaseUpdatePassword(currentUser, newPassword);
+  };
+
+  const confirmPasswordResetWithCode = async (oobCode: string, newPassword: string) => {
+    if (!oobCode) {
+      throw new Error('Invalid or missing password reset code.');
+    }
+    if (!newPassword || newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long.');
+    }
+    await confirmPasswordReset(auth, oobCode, newPassword);
   };
 
   const refreshProfile = async () => {
@@ -720,6 +781,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       resetPassword,
       updateProfileData,
       changePassword,
+      changePasswordWithOldPassword,
+      confirmPasswordResetWithCode,
       isAdmin,
       isMainAdmin,
       isModerator,

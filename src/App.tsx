@@ -10,6 +10,7 @@ import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { SignUp } from './pages/SignUp';
 import { ForgotPassword } from './pages/ForgotPassword';
+import { StandaloneResetPassword } from './pages/StandaloneResetPassword';
 import { AuthSelection } from './pages/AuthSelection';
 
 // Protected Route Guard
@@ -97,6 +98,14 @@ export default function App() {
                         <ForgotPassword />
                       </PublicRoute>
                     }
+                  />
+                  <Route
+                    path="/reset-password"
+                    element={<StandaloneResetPassword />}
+                  />
+                  <Route
+                    path="/reset-key"
+                    element={<StandaloneResetPassword />}
                   />
 
                   {/* Protected Routes */}

@@ -30,6 +30,16 @@ export const ApkPermissionModal: React.FC<ApkPermissionModalProps> = ({ isOpen, 
   const handleGrantPermission = async () => {
     playGlitchNotificationSound();
 
+    // 1. Capacitor Local Notifications permission request for Android APK
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+      try {
+        await (window as any).Capacitor.Plugins.LocalNotifications.requestPermissions();
+      } catch (e) {
+        console.warn('Capacitor LocalNotifications request permission error:', e);
+      }
+    }
+
+    // 2. Standard Web Notification request
     if (typeof window !== 'undefined' && 'Notification' in window) {
       try {
         const res = await Notification.requestPermission();
