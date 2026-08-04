@@ -9,13 +9,14 @@ interface MatrixTransitionContextType {
   matrixTheme: MatrixTheme;
   setMatrixTheme: (theme: MatrixTheme) => void;
   toggleReduceMotion: () => void;
-  triggerMatrixTransition: (onSwitchContent?: () => void, durationMs?: number) => void;
+  triggerMatrixTransition: (onSwitchContent?: () => void, durationMs?: number, fullScreen?: boolean) => void;
 }
 
 const MatrixTransitionContext = createContext<MatrixTransitionContextType | undefined>(undefined);
 
 export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isActive, setIsActive] = useState<boolean>(false);
+  const [isFullScreen, setIsFullScreen] = useState<boolean>(false);
   const [fadePhase, setFadePhase] = useState<'idle' | 'fadeIn' | 'active' | 'fadeOut'>('idle');
   const [matrixTheme, setMatrixThemeState] = useState<MatrixTheme>(() => {
     const saved = localStorage.getItem('privatechat_matrix_theme');
@@ -52,7 +53,7 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
   };
 
   const triggerMatrixTransition = useCallback(
-    (onSwitchContent?: () => void, durationMs: number = 700) => {
+    (onSwitchContent?: () => void, durationMs: number = 700, fullScreen: boolean = false) => {
       // If reduce motion is enabled, perform quick fade fallback
       if (reduceMotion) {
         if (onSwitchContent) onSwitchContent();
@@ -65,6 +66,7 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
         return;
       }
 
+      setIsFullScreen(fullScreen);
       setPeakCallback(() => onSwitchContent || null);
       setIsActive(true);
       setFadePhase('fadeIn');
@@ -107,6 +109,7 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
         isActive={isActive}
         theme={activeMatrixTheme}
         fadePhase={fadePhase}
+        isFullScreen={isFullScreen}
         onTransitionPeak={handlePeak}
         onTransitionComplete={handleComplete}
       />
@@ -114,7 +117,7 @@ export const MatrixTransitionProvider: React.FC<{ children: React.ReactNode }> =
       {/* Subtle screen flash overlay to enhance depth during cascade */}
       {isActive && (
         <div
-          className={`fixed top-16 inset-x-0 bottom-0 z-[9998] pointer-events-none bg-black/60 transition-opacity duration-300 ${
+          className={`fixed ${isFullScreen ? 'inset-0' : 'top-16 inset-x-0 bottom-0'} z-[9998] pointer-events-none bg-black/60 transition-opacity duration-300 ${
             fadePhase === 'fadeIn' ? 'opacity-100' : 'opacity-0'
           }`}
           aria-hidden="true"

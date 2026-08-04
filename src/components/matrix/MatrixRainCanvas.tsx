@@ -28,6 +28,7 @@ interface MatrixRainCanvasProps {
   isActive: boolean;
   theme?: MatrixTheme;
   fadePhase: 'idle' | 'fadeIn' | 'active' | 'fadeOut';
+  isFullScreen?: boolean;
   onTransitionPeak?: () => void;
   onTransitionComplete?: () => void;
 }
@@ -43,6 +44,7 @@ interface GridCell {
 export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
   isActive,
   theme = 'crimson',
+  isFullScreen = false,
   onTransitionPeak,
   onTransitionComplete,
 }) => {
@@ -131,7 +133,7 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
     const initGrid = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const width = window.innerWidth;
-      const height = Math.max(100, window.innerHeight - 64);
+      const height = isFullScreen ? window.innerHeight : Math.max(100, window.innerHeight - 64);
 
       canvas.width = width * dpr;
       canvas.height = height * dpr;
@@ -171,7 +173,7 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
     const render = (nowTime: number) => {
       const elapsed = nowTime - startTimeRef.current;
       const width = window.innerWidth;
-      const height = Math.max(100, window.innerHeight - 64);
+      const height = isFullScreen ? window.innerHeight : Math.max(100, window.innerHeight - 64);
 
       let curtainX = 0;
       let phase: 'outward' | 'return' = 'outward';
@@ -292,14 +294,14 @@ export const MatrixRainCanvas: React.FC<MatrixRainCanvasProps> = ({
         animFrameRef.current = null;
       }
     };
-  }, [isActive, theme]);
+  }, [isActive, theme, isFullScreen]);
 
   if (!isActive) return null;
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed top-16 inset-x-0 bottom-0 z-[9999] pointer-events-none select-none transition-opacity duration-200"
+      className={`fixed ${isFullScreen ? 'inset-0' : 'top-16 inset-x-0 bottom-0'} z-[9999] pointer-events-none select-none transition-opacity duration-200`}
       aria-hidden="true"
     />
   );

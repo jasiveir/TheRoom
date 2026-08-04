@@ -1,9 +1,27 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, Shield, Sparkles, MessageSquare, ArrowRight } from 'lucide-react';
 import logoImg from '../assets/TheRoom.jpg';
+import { useMatrixTransition } from '../context/MatrixTransitionContext';
 
 export const AuthSelection: React.FC = () => {
+  const navigate = useNavigate();
+  const { triggerMatrixTransition } = useMatrixTransition();
+
+  const handleNavigateToLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    triggerMatrixTransition(() => {
+      navigate('/login');
+    }, 700, true);
+  };
+
+  const handleNavigateToSignup = (e: React.MouseEvent) => {
+    e.preventDefault();
+    triggerMatrixTransition(() => {
+      navigate('/signup');
+    }, 700, true);
+  };
+
   return (
     <div className="min-h-dvh w-full bg-[#fbfaf6] text-black flex items-center justify-center p-4 sm:p-6 transition-colors relative overflow-hidden">
       <div className="w-full max-w-lg bg-white border border-[#e2dfd2] rounded-2xl p-6 sm:p-10 shadow-sm relative z-10 font-mono text-center">
@@ -30,8 +48,8 @@ export const AuthSelection: React.FC = () => {
 
         {/* Selection Cards */}
         <div className="space-y-4">
-          <Link
-            to="/login"
+          <button
+            onClick={handleNavigateToLogin}
             className="group w-full p-4 bg-black hover:bg-zinc-800 text-white rounded-xl flex items-center justify-between transition-all shadow-sm hover:shadow-md cursor-pointer border border-black"
           >
             <div className="flex items-center gap-3.5 text-left">
@@ -44,10 +62,10 @@ export const AuthSelection: React.FC = () => {
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-white/70 group-hover:translate-x-1 transition-transform shrink-0" />
-          </Link>
+          </button>
 
-          <Link
-            to="/signup"
+          <button
+            onClick={handleNavigateToSignup}
             className="group w-full p-4 bg-[#fbfaf6] hover:bg-[#f3f0e6] text-black border border-[#d8d4c5] hover:border-black rounded-xl flex items-center justify-between transition-all shadow-2xs cursor-pointer"
           >
             <div className="flex items-center gap-3.5 text-left">
@@ -60,7 +78,7 @@ export const AuthSelection: React.FC = () => {
               </div>
             </div>
             <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-black group-hover:translate-x-1 transition-transform shrink-0" />
-          </Link>
+          </button>
         </div>
 
         {/* Feature Badges */}

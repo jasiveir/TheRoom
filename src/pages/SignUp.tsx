@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useMatrixTransition } from '../context/MatrixTransitionContext';
 import { compressAndResizeImage, sanitizePhotoURL } from '../lib/imageUtils';
 import logoImg from '../assets/TheRoom.jpg';
 import { 
@@ -26,6 +27,21 @@ import {
 export const SignUp: React.FC = () => {
   const { signUp } = useAuth();
   const navigate = useNavigate();
+  const { triggerMatrixTransition } = useMatrixTransition();
+
+  const handleBackToOptions = (e: React.MouseEvent) => {
+    e.preventDefault();
+    triggerMatrixTransition(() => {
+      navigate('/welcome');
+    }, 700, true);
+  };
+
+  const handleGoToLogin = (e: React.MouseEvent) => {
+    e.preventDefault();
+    triggerMatrixTransition(() => {
+      navigate('/login');
+    }, 700, true);
+  };
 
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -116,7 +132,9 @@ export const SignUp: React.FC = () => {
         photoURL: cleanPhotoURL
       });
 
-      navigate('/');
+      triggerMatrixTransition(() => {
+        navigate('/');
+      }, 700, true);
     } catch (err: any) {
       console.error('Sign up error:', err);
       if (err.code === 'auth/operation-not-allowed' || err.message?.includes('operation-not-allowed')) {
@@ -139,13 +157,14 @@ export const SignUp: React.FC = () => {
     <div className="min-h-dvh w-full bg-[#fbfaf6] text-black flex items-center justify-center p-4 sm:p-6 transition-colors relative overflow-hidden py-12">
       <div className="w-full max-w-xl bg-white border border-[#e2dfd2] rounded-2xl p-6 sm:p-8 shadow-sm relative z-10 font-mono">
         {/* Navigation back */}
-        <Link 
-          to="/welcome" 
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-black mb-4 font-semibold uppercase tracking-wider transition-colors"
+        <button 
+          type="button"
+          onClick={handleBackToOptions}
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-black mb-4 font-semibold uppercase tracking-wider transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Option Selection</span>
-        </Link>
+        </button>
 
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl bg-black border border-zinc-800 flex items-center justify-center font-black text-2xl mx-auto mb-2 overflow-hidden shadow-md">
@@ -476,9 +495,13 @@ export const SignUp: React.FC = () => {
         <div className="mt-6 pt-4 border-t border-[#e2dfd2] text-center">
           <p className="text-xs text-zinc-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-black font-bold hover:underline uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={handleGoToLogin}
+              className="text-black font-bold hover:underline uppercase tracking-wider cursor-pointer"
+            >
               Log In
-            </Link>
+            </button>
           </p>
         </div>
       </div>

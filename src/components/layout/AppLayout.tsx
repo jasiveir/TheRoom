@@ -86,7 +86,7 @@ export const AppLayout: React.FC = () => {
     if (newTab === activeTab) return;
     triggerMatrixTransition(() => {
       setActiveTab(newTab);
-    });
+    }, 700, false);
   };
 
   const handleSelectChat = (chat: Chat | null) => {

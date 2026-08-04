@@ -143,17 +143,15 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
         </div>
 
         {/* Quick QR Code Action Buttons */}
-        <div className={`grid ${isApp ? 'grid-cols-2' : 'grid-cols-1'} gap-2 my-3`}>
-          {isApp && (
-            <button
-              type="button"
-              onClick={handleOpenScanner}
-              className="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-green-400 border-2 border-zinc-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
-            >
-              <Camera className="w-4 h-4 text-green-400" />
-              <span>Scan Camera QR</span>
-            </button>
-          )}
+        <div className="grid grid-cols-2 gap-2 my-3">
+          <button
+            type="button"
+            onClick={handleOpenScanner}
+            className="py-2 px-3 bg-zinc-900 hover:bg-zinc-800 text-green-400 border-2 border-zinc-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+          >
+            <Camera className="w-4 h-4 text-green-400" />
+            <span>Scan Camera QR</span>
+          </button>
 
           <button
             type="button"

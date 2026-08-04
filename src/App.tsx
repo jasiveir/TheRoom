@@ -1,28 +1,16 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import logoImg from './assets/TheRoom.jpg';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LayoutTemplateProvider } from './context/LayoutTemplateContext';
-import { MatrixTransitionProvider, useMatrixTransition } from './context/MatrixTransitionContext';
+import { MatrixTransitionProvider } from './context/MatrixTransitionContext';
 import { Home } from './pages/Home';
 import { Login } from './pages/Login';
 import { SignUp } from './pages/SignUp';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { AuthSelection } from './pages/AuthSelection';
-
-// Matrix Route Change Transition Listener
-const MatrixRouteListener: React.FC = () => {
-  const location = useLocation();
-  const { triggerMatrixTransition } = useMatrixTransition();
-
-  useEffect(() => {
-    triggerMatrixTransition();
-  }, [location.pathname]);
-
-  return null;
-};
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -68,92 +56,91 @@ export default function App() {
           <AuthProvider>
             <NotificationProvider>
               <BrowserRouter>
-                <MatrixRouteListener />
                 <Routes>
-                {/* Public Routes */}
-                <Route
-                  path="/welcome"
-                  element={
-                    <PublicRoute>
-                      <AuthSelection />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/auth"
-                  element={
-                    <PublicRoute>
-                      <AuthSelection />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/login"
-                  element={
-                    <PublicRoute>
-                      <Login />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/signup"
-                  element={
-                    <PublicRoute>
-                      <SignUp />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/forgot-password"
-                  element={
-                    <PublicRoute>
-                      <ForgotPassword />
-                    </PublicRoute>
-                  }
-                />
+                  {/* Public Routes */}
+                  <Route
+                    path="/welcome"
+                    element={
+                      <PublicRoute>
+                        <AuthSelection />
+                      </PublicRoute>
+                    }
+                  />
+                  <Route
+                    path="/auth"
+                    element={
+                      <PublicRoute>
+                        <AuthSelection />
+                      </PublicRoute>
+                    }
+                  />
+                  <Route
+                    path="/login"
+                    element={
+                      <PublicRoute>
+                        <Login />
+                      </PublicRoute>
+                    }
+                  />
+                  <Route
+                    path="/signup"
+                    element={
+                      <PublicRoute>
+                        <SignUp />
+                      </PublicRoute>
+                    }
+                  />
+                  <Route
+                    path="/forgot-password"
+                    element={
+                      <PublicRoute>
+                        <ForgotPassword />
+                      </PublicRoute>
+                    }
+                  />
 
-                {/* Protected Routes */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Home />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute>
-                      <Home />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <ProtectedRoute>
-                      <Home />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/notifications"
-                  element={
-                    <ProtectedRoute>
-                      <Home />
-                    </ProtectedRoute>
-                  }
-                />
+                  {/* Protected Routes */}
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <Home />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute>
+                        <Home />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <ProtectedRoute>
+                        <Home />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/notifications"
+                    element={
+                      <ProtectedRoute>
+                        <Home />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </BrowserRouter>
-          </NotificationProvider>
-        </AuthProvider>
-      </MatrixTransitionProvider>
-    </LayoutTemplateProvider>
-  </ThemeProvider>
-);
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </BrowserRouter>
+            </NotificationProvider>
+          </AuthProvider>
+        </MatrixTransitionProvider>
+      </LayoutTemplateProvider>
+    </ThemeProvider>
+  );
 }
