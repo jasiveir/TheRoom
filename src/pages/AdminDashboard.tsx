@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth, PREDEFINED_ADMIN_EMAIL } from '../context/AuthContext';
+import { deleteUserAccountAndAllData } from '../lib/userCleanupService';
 import { useLayoutTemplate } from '../context/LayoutTemplateContext';
 import { UserProfile, AccountStatus } from '../types';
 import { 
@@ -283,9 +284,9 @@ export const AdminDashboard: React.FC = () => {
       isDanger: true,
       onConfirm: async () => {
         try {
-          await deleteDoc(doc(db, 'users', uid));
+          await deleteUserAccountAndAllData(uid);
           setSelectedUids((prev) => prev.filter((id) => id !== uid));
-          showToast(`User account "${name}" was permanently deleted.`, 'success');
+          showToast(`User account "${name}" and all associated chats/friendships were permanently deleted.`, 'success');
         } catch (err: any) {
           console.error('Error deleting user:', err);
           showToast(`Could not delete user: ${err.message}`, 'error');
@@ -318,10 +319,10 @@ export const AdminDashboard: React.FC = () => {
       onConfirm: async () => {
         try {
           for (const uid of deletableUids) {
-            await deleteDoc(doc(db, 'users', uid));
+            await deleteUserAccountAndAllData(uid);
           }
           setSelectedUids([]);
-          showToast(`Successfully deleted ${deletableUids.length} account(s).`, 'success');
+          showToast(`Successfully deleted ${deletableUids.length} account(s) and all their associated data.`, 'success');
         } catch (err: any) {
           console.error('Error batch deleting users:', err);
           showToast(`Error deleting selected accounts: ${err.message}`, 'error');
@@ -347,7 +348,7 @@ export const AdminDashboard: React.FC = () => {
         const isProtectedAdmin = u.isMainAdmin || u.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
 
         if (!isProtectedAdmin) {
-          await deleteDoc(doc(db, 'users', d.id));
+          await deleteUserAccountAndAllData(d.id);
           deletedCount++;
         }
       }
@@ -355,7 +356,7 @@ export const AdminDashboard: React.FC = () => {
       setShowWipeAccountsModal(false);
       setWipeConfirmInput('');
       setSelectedUids([]);
-      showToast(`WIPE COMPLETE: Permanently deleted ${deletedCount} non-admin user account(s).`, 'success');
+      showToast(`WIPE COMPLETE: Permanently deleted ${deletedCount} non-admin user account(s) and all associated data.`, 'success');
     } catch (err: any) {
       console.error('Error wiping all accounts:', err);
       showToast(`Wipe accounts error: ${err.message}`, 'error');
@@ -393,7 +394,7 @@ export const AdminDashboard: React.FC = () => {
   const handleTriggerPasswordReset = async (email: string) => {
     try {
       await resetPassword(email);
-      showToast(`Password reset link successfully sent to ${email}`, 'success');
+      showToast(`Password reset key email requested for ${email}. (Check Gmail inbox or Spam folder)`, 'success');
     } catch (err: any) {
       showToast(`Password reset error: ${err.message}`, 'error');
     }

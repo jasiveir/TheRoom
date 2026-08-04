@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
@@ -65,6 +65,16 @@ export const ChatsList: React.FC<ChatsListProps> = ({
           if (seenPrivateUserIds.has(otherUid)) {
             // Delete duplicate chat document from Firestore
             deleteChatById(chat.id).catch(() => {});
+            continue;
+          }
+
+          // Check if the other user profile exists in Firestore
+          const otherUserSnap = await getDoc(doc(db, 'users', otherUid));
+          if (!otherUserSnap.exists()) {
+            deleteChatById(chat.id).catch(() => {});
+            if (chat.id === activeChatId) {
+              onSelectChat(null);
+            }
             continue;
           }
 

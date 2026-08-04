@@ -672,20 +672,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Account not identified. Password reset is only supported for registered Google email addresses (@gmail.com).');
     }
 
-    const actionCodeSettings = {
-      url: `${window.location.origin}/reset-password`,
-      handleCodeInApp: true,
-    };
-
     try {
-      await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+      // First try standard Firebase email dispatch
+      await sendPasswordResetEmail(auth, cleanEmail);
     } catch (err: any) {
-      console.warn('Firebase sendPasswordResetEmail error:', err);
-      // Fallback if actionCodeSettings fails or default reset email fails
-      if (err.code === 'auth/invalid-continue-uri' || err.code === 'auth/unauthorized-domain') {
-        await sendPasswordResetEmail(auth, cleanEmail);
-      } else {
-        throw err;
+      console.warn('Firebase sendPasswordResetEmail attempt 1 error:', err);
+      try {
+        // Fallback attempt with actionCodeSettings
+        const actionCodeSettings = {
+          url: `${window.location.origin}/reset-password`,
+          handleCodeInApp: true,
+        };
+        await sendPasswordResetEmail(auth, cleanEmail, actionCodeSettings);
+      } catch (fallbackErr: any) {
+        console.error('Firebase sendPasswordResetEmail fallback error:', fallbackErr);
+        throw new Error(err.message || fallbackErr.message || 'Could not send reset email. Please verify your Gmail address.');
       }
     }
   };

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, where, onSnapshot, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
@@ -109,6 +109,10 @@ export const FriendList: React.FC<FriendListProps> = ({
             const uSnap = await getDocs(qUser);
             if (!uSnap.empty) {
               list.push({ uid: uSnap.docs[0].id, ...uSnap.docs[0].data() } as UserProfile);
+            } else {
+              // Target user profile was deleted. Clean up stale friendship document and chat
+              const staleId = [userProfile.uid, fUid].sort().join('_');
+              deleteDoc(doc(db, 'friendships', staleId)).catch(() => {});
             }
           }
         } catch (err) {
