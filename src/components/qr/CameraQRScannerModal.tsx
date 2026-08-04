@@ -41,6 +41,19 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
     await stopScanner();
 
     try {
+      // Force trigger native system camera permission request prompt
+      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+        try {
+          const testStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } }
+          });
+          // Immediately release tracks so Html5Qrcode can bind the camera stream
+          testStream.getTracks().forEach(track => track.stop());
+        } catch (mediaErr: any) {
+          console.warn('Native getUserMedia request returned error:', mediaErr);
+        }
+      }
+
       const qrScanner = new Html5Qrcode(readerElementId);
       html5QrcodeRef.current = qrScanner;
 
@@ -87,12 +100,12 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
         );
         setIsScanning(true);
       } else {
-        setError('No camera found on this device.');
+        setError('No camera detected. Please grant camera permission in phone settings and retry.');
       }
     } catch (err: any) {
       console.error('Camera QR scanner error:', err);
       setError(
-        err?.message || 'Could not access device camera. Please allow camera permissions in your device settings.'
+        err?.message || 'Could not access device camera. Please grant camera permissions in your device settings.'
       );
       setIsScanning(false);
     }

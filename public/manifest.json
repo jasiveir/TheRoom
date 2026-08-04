@@ -3,6 +3,18 @@
   "name": "TheRoom - Private Messaging",
   "icons": [
     {
+      "src": "/logos/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    },
+    {
       "src": "/logos/logo.jpg",
       "type": "image/jpeg",
       "sizes": "512x512",
