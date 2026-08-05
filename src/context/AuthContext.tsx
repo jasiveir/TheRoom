@@ -151,7 +151,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       })
       .catch((err) => {
-        console.warn('Google Auth getRedirectResult notice:', err);
+        if (
+          err?.code === 'auth/missing-initial-state' ||
+          err?.message?.includes('missing initial state') ||
+          err?.code === 'auth/argument-error'
+        ) {
+          console.info('Redirect state cleared or inapplicable:', err?.message || err);
+        } else {
+          console.warn('Google Auth getRedirectResult notice:', err);
+        }
       });
   }, []);
 
@@ -669,47 +677,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       let cred = null;
-      const isWebView = typeof window !== 'undefined' && (
-        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
-        (window as any).Capacitor ||
-        (window as any).Cordova
-      );
-
       try {
-        if (isWebView) {
-          try {
-            cred = await signInWithPopup(auth, provider);
-          } catch (pErr: any) {
-            console.warn('WebView popup notice, fallback to redirect:', pErr);
-            await signInWithRedirect(auth, provider);
-            return;
-          }
-        } else {
-          try {
-            cred = await signInWithPopup(auth, provider);
-          } catch (pErr: any) {
-            if (
-              pErr?.code === 'auth/popup-blocked' ||
-              pErr?.code === 'auth/popup-closed-by-user' ||
-              pErr?.code === 'auth/operation-not-supported-in-this-environment' ||
-              pErr?.code === 'auth/cancelled-popup-request'
-            ) {
-              console.warn('Popup blocked/unsupported, triggering redirect fallback:', pErr);
-              await signInWithRedirect(auth, provider);
-              return;
-            }
-            throw pErr;
-          }
-        }
-      } catch (innerErr: any) {
+        cred = await signInWithPopup(auth, provider);
+      } catch (pErr: any) {
         if (
-          innerErr?.code === 'auth/popup-blocked' ||
-          innerErr?.code === 'auth/operation-not-supported-in-this-environment'
+          pErr?.code === 'auth/popup-closed-by-user' ||
+          pErr?.code === 'auth/cancelled-popup-request'
         ) {
-          await signInWithRedirect(auth, provider);
-          return;
+          throw new Error('Google Sign-In account selection was cancelled.');
         }
-        throw innerErr;
+        if (pErr?.code === 'auth/popup-blocked') {
+          throw new Error('The Google Sign-In popup was blocked by your browser/device. Please allow popups or use Email & Password.');
+        }
+        if (
+          pErr?.code === 'auth/disallowed-webview' ||
+          pErr?.code === 'auth/operation-not-supported-in-this-environment'
+        ) {
+          throw new Error('Google OAuth is restricted inside embedded Android app views by Google policy. Please sign in using Email & Password or Guest Mode on this APK version.');
+        }
+        throw pErr;
       }
 
       if (cred && cred.user) {
@@ -737,14 +723,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      let res = null;
-      try {
-        res = await signInWithPopup(auth, provider);
-      } catch (pErr: any) {
-        console.warn('connectGoogleAccount popup notice, fallback to redirect:', pErr);
-        await signInWithRedirect(auth, provider);
-        return;
-      }
+      const res = await signInWithPopup(auth, provider);
 
       if (res && res.user) {
         const gEmail = res.user.email || '';
@@ -763,6 +742,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       console.error('Error connecting Google Account:', err);
+      if (err?.code === 'auth/popup-closed-by-user') {
+        throw new Error('Account selection was cancelled.');
+      }
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
         const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your-domain';
         throw new Error(`Domain "${currentHost}" is not authorized in Firebase Auth. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains -> Add Domain: "${currentHost}".`);

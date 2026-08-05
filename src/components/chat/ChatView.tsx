@@ -302,8 +302,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
   return (
     <div id="chat-view-container" className={`flex-1 flex flex-col h-full ${template.bgMain} transition-colors relative overflow-hidden`}>
       {/* Chat Header */}
-      <div className={`h-16 px-4 ${template.bgSidebar} border-b ${template.borderMain} flex items-center justify-between shrink-0 z-10 shadow-xs`}>
-        <div className="flex items-center gap-3 min-w-0">
+      <div className={`h-16 px-2.5 sm:px-4 ${template.bgSidebar} border-b ${template.borderMain} flex items-center justify-between shrink-0 z-10 shadow-xs gap-2 min-w-0`}>
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 overflow-hidden">
           {onBackMobile && (
             <button
               onClick={onBackMobile}
@@ -322,35 +322,35 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 onOpenFriendProfile(otherUser);
               }
             }}
-            className="flex items-center gap-3 cursor-pointer select-none min-w-0"
+            className="flex items-center gap-2 sm:gap-3 cursor-pointer select-none min-w-0 flex-1 overflow-hidden"
           >
             {chat.type === 'group' ? (
               chat.photoURL ? (
-                <img src={chat.photoURL} alt={chat.name} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-[#e2dfd2]" referrerPolicy="no-referrer" />
+                <img src={chat.photoURL} alt={chat.name} className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover shrink-0 border border-[#e2dfd2]" referrerPolicy="no-referrer" />
               ) : (
-                <div className="w-10 h-10 rounded-lg bg-black text-white font-bold text-sm flex items-center justify-center shrink-0 border border-black shadow-xs">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-black text-white font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 border border-black shadow-xs">
                   {chat.name?.[0]?.toUpperCase() || 'G'}
                 </div>
               )
             ) : otherDetail?.photoURL ? (
-              <img src={otherDetail.photoURL} alt={otherDetail.fullName} className="w-10 h-10 rounded-lg object-cover shrink-0 border border-[#e2dfd2]" referrerPolicy="no-referrer" />
+              <img src={otherDetail.photoURL} alt={otherDetail.fullName} className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover shrink-0 border border-[#e2dfd2]" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-10 h-10 rounded-lg bg-black text-white font-bold text-sm flex items-center justify-center shrink-0 border border-black shadow-xs">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-black text-white font-bold text-xs sm:text-sm flex items-center justify-center shrink-0 border border-black shadow-xs">
                 {otherDetail?.fullName?.[0]?.toUpperCase() || 'U'}
               </div>
             )}
 
-            <div className="min-w-0">
-              <h3 className="font-bold text-sm text-black truncate uppercase tracking-wider flex items-center gap-2">
-                <span>{chat.type === 'group' ? chat.name : otherDetail?.fullName}</span>
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <h3 className="font-bold text-xs sm:text-sm text-black truncate uppercase tracking-wider block min-w-0">
+                {chat.type === 'group' ? chat.name : (otherDetail?.fullName || 'User')}
               </h3>
-              <p className="text-[11px] text-zinc-500 truncate flex items-center gap-1.5 font-sans">
+              <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate flex items-center gap-1.5 font-sans min-w-0">
                 {chat.type === 'group' ? (
                   <span>{chat.members.length} members</span>
                 ) : (
                   <>
-                    <span className={`w-2 h-2 rounded-full ${otherUser?.status === 'online' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-zinc-400'}`} />
-                    <span className="capitalize">{otherUser?.status === 'online' ? 'Online' : 'Offline'}</span>
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${otherUser?.status === 'online' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-zinc-400'}`} />
+                    <span className="capitalize truncate">{otherUser?.status === 'online' ? 'Online' : 'Offline'}</span>
                   </>
                 )}
               </p>
@@ -359,7 +359,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 ml-1 sm:ml-2">
           {chat.type === 'private' && (otherUser || otherUserId) && (
             <button
               onClick={() => {
@@ -368,17 +368,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 const targetAvatar = otherUser?.photoURL || otherDetail?.photoURL || '';
                 startVoiceCall(targetUid, targetName, targetAvatar, chat.id);
               }}
-              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
               title="Start Voice Call"
             >
-              <Phone className="w-3.5 h-3.5 fill-current" />
+              <Phone className="w-4 h-4 sm:w-3.5 sm:h-3.5 fill-current shrink-0" />
               <span className="hidden sm:inline">Voice Call</span>
             </button>
           )}
 
           <button
             onClick={() => setShowSearch(!showSearch)}
-            className={`p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-all cursor-pointer ${
+            className={`p-1.5 sm:p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-all cursor-pointer shrink-0 ${
               showSearch ? 'bg-black text-white border-black' : ''
             }`}
             title="Search conversation"
@@ -389,7 +389,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           {chat.type === 'group' ? (
             <button
               onClick={() => onOpenGroupDetails && onOpenGroupDetails(chat)}
-              className="p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-colors cursor-pointer shrink-0"
               title="Group info"
             >
               <Info className="w-4 h-4" />
@@ -398,7 +398,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             otherUser && isOtherUserFriend && onOpenUnfriendModal && (
               <button
                 onClick={() => onOpenUnfriendModal(otherUser)}
-                className="p-2 rounded-lg text-rose-600 border border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer"
+                className="p-1.5 sm:p-2 rounded-lg text-rose-600 border border-rose-200 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
                 title="Unfriend User"
               >
                 <UserX className="w-4 h-4" />
