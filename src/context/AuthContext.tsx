@@ -10,6 +10,8 @@ import {
   updatePassword as firebaseUpdatePassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   EmailAuthProvider,
   reauthenticateWithCredential,
   confirmPasswordReset
@@ -140,6 +142,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     seedAdmin();
+
+    // Check for Google OAuth Redirect results on app load
+    getRedirectResult(auth)
+      .then(async (cred) => {
+        if (cred && cred.user) {
+          await processGoogleCredential(cred);
+        }
+      })
+      .catch((err) => {
+        console.warn('Google Auth getRedirectResult notice:', err);
+      });
   }, []);
 
   useEffect(() => {
@@ -587,72 +600,129 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const processGoogleCredential = async (cred: any) => {
+    if (!cred || !cred.user) return;
+    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
+    
+    if (!userDoc.exists()) {
+      const friendCode = await generateUniqueFriendCode();
+      const isMainAdmin = cred.user.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
+
+      const newProfile: UserProfile = {
+        uid: cred.user.uid,
+        fullName: cred.user.displayName || 'User',
+        username: (cred.user.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9]/g, ''),
+        email: cred.user.email?.toLowerCase() || '',
+        friendCode: friendCode,
+        bio: 'Hello! I am using TheRoom.',
+        photoURL: cred.user.photoURL || '',
+        status: 'online',
+        lastSeen: serverTimestamp(),
+        friendsCount: 0,
+        accountStatus: 'active',
+        isAdmin: isMainAdmin,
+        isMainAdmin: isMainAdmin,
+        isModerator: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(db, 'users', cred.user.uid), newProfile);
+      
+      if (isMainAdmin) {
+        await setDoc(doc(db, 'admins', cred.user.uid), {
+          uid: cred.user.uid,
+          email: cred.user.email,
+          createdAt: serverTimestamp()
+        });
+      }
+      localStorage.setItem(STORAGE_KEY, cred.user.uid);
+      setUserProfile(newProfile);
+    } else {
+      const data = userDoc.data() as UserProfile;
+      if (data.accountStatus === 'blocked') {
+        await firebaseSignOut(auth);
+        throw new Error('Your account has been blocked by an administrator.');
+      }
+      if (data.accountStatus === 'deactivated') {
+        await firebaseSignOut(auth);
+        throw new Error('Your account has been deactivated.');
+      }
+
+      const updates = {
+        status: 'online',
+        lastSeen: serverTimestamp(),
+        googleConnected: true,
+        googleEmail: cred.user.email || ''
+      };
+      await updateDoc(doc(db, 'users', cred.user.uid), updates);
+      localStorage.setItem(STORAGE_KEY, cred.user.uid);
+      setUserProfile({ ...data, googleConnected: true, googleEmail: cred.user.email || '' });
+    }
+  };
+
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const cred = await signInWithPopup(auth, provider);
-      const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-      
-      if (!userDoc.exists()) {
-        const friendCode = await generateUniqueFriendCode();
-        const isMainAdmin = cred.user.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
 
-        const newProfile: UserProfile = {
-          uid: cred.user.uid,
-          fullName: cred.user.displayName || 'User',
-          username: (cred.user.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9]/g, ''),
-          email: cred.user.email?.toLowerCase() || '',
-          friendCode: friendCode,
-          bio: 'Hello! I am using TheRoom.',
-          photoURL: cred.user.photoURL || '',
-          status: 'online',
-          lastSeen: serverTimestamp(),
-          friendsCount: 0,
-          accountStatus: 'active',
-          isAdmin: isMainAdmin,
-          isMainAdmin: isMainAdmin,
-          isModerator: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
+      let cred = null;
+      const isWebView = typeof window !== 'undefined' && (
+        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
+        (window as any).Capacitor ||
+        (window as any).Cordova
+      );
 
-        await setDoc(doc(db, 'users', cred.user.uid), newProfile);
-        
-        if (isMainAdmin) {
-          await setDoc(doc(db, 'admins', cred.user.uid), {
-            uid: cred.user.uid,
-            email: cred.user.email,
-            createdAt: serverTimestamp()
-          });
+      try {
+        if (isWebView) {
+          try {
+            cred = await signInWithPopup(auth, provider);
+          } catch (pErr: any) {
+            console.warn('WebView popup notice, fallback to redirect:', pErr);
+            await signInWithRedirect(auth, provider);
+            return;
+          }
+        } else {
+          try {
+            cred = await signInWithPopup(auth, provider);
+          } catch (pErr: any) {
+            if (
+              pErr?.code === 'auth/popup-blocked' ||
+              pErr?.code === 'auth/popup-closed-by-user' ||
+              pErr?.code === 'auth/operation-not-supported-in-this-environment' ||
+              pErr?.code === 'auth/cancelled-popup-request'
+            ) {
+              console.warn('Popup blocked/unsupported, triggering redirect fallback:', pErr);
+              await signInWithRedirect(auth, provider);
+              return;
+            }
+            throw pErr;
+          }
         }
-        localStorage.setItem(STORAGE_KEY, cred.user.uid);
-        setUserProfile(newProfile);
-      } else {
-        const data = userDoc.data() as UserProfile;
-        if (data.accountStatus === 'blocked') {
-          await firebaseSignOut(auth);
-          throw new Error('Your account has been blocked by an administrator.');
+      } catch (innerErr: any) {
+        if (
+          innerErr?.code === 'auth/popup-blocked' ||
+          innerErr?.code === 'auth/operation-not-supported-in-this-environment'
+        ) {
+          await signInWithRedirect(auth, provider);
+          return;
         }
-        if (data.accountStatus === 'deactivated') {
-          await firebaseSignOut(auth);
-          throw new Error('Your account has been deactivated.');
-        }
+        throw innerErr;
+      }
 
-        const updates = {
-          status: 'online',
-          lastSeen: serverTimestamp(),
-          googleConnected: true,
-          googleEmail: cred.user.email || ''
-        };
-        await updateDoc(doc(db, 'users', cred.user.uid), updates);
-        localStorage.setItem(STORAGE_KEY, cred.user.uid);
-        setUserProfile({ ...data, googleConnected: true, googleEmail: cred.user.email || '' });
+      if (cred && cred.user) {
+        await processGoogleCredential(cred);
       }
     } catch (err: any) {
       console.error('Google sign in error:', err);
+      if (err?.code === 'auth/disallowed-webview') {
+        throw new Error('Google restricts instant sign-in inside embedded WebViews by policy. Please sign in with Email & Password or Guest Mode on this APK version.');
+      }
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
         const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your-domain';
-        throw new Error(`Domain "${currentHost}" is not authorized in Firebase Auth. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains -> Add Domain: "${currentHost}" (or use Username/Password log in).`);
+        throw new Error(`Domain "${currentHost}" is not authorized in Firebase Auth. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains -> Add Domain: "${currentHost}".`);
       }
       throw err;
     }
@@ -666,21 +736,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const provider = new GoogleAuthProvider();
-      const res = await signInWithPopup(auth, provider);
-      const gEmail = res.user?.email || '';
+      provider.setCustomParameters({ prompt: 'select_account' });
+      let res = null;
+      try {
+        res = await signInWithPopup(auth, provider);
+      } catch (pErr: any) {
+        console.warn('connectGoogleAccount popup notice, fallback to redirect:', pErr);
+        await signInWithRedirect(auth, provider);
+        return;
+      }
 
-      const updates: Record<string, any> = {
-        googleConnected: true,
-        googleEmail: gEmail,
-        updatedAt: serverTimestamp()
-      };
+      if (res && res.user) {
+        const gEmail = res.user.email || '';
+        const updates: Record<string, any> = {
+          googleConnected: true,
+          googleEmail: gEmail,
+          updatedAt: serverTimestamp()
+        };
 
-      await updateDoc(doc(db, 'users', activeUid), updates).catch(() => {});
-      setUserProfile((prev) => prev ? {
-        ...prev,
-        googleConnected: true,
-        googleEmail: gEmail
-      } : prev);
+        await updateDoc(doc(db, 'users', activeUid), updates).catch(() => {});
+        setUserProfile((prev) => prev ? {
+          ...prev,
+          googleConnected: true,
+          googleEmail: gEmail
+        } : prev);
+      }
     } catch (err: any) {
       console.error('Error connecting Google Account:', err);
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
