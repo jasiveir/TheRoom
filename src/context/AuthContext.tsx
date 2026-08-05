@@ -9,6 +9,7 @@ import {
   sendPasswordResetEmail,
   updatePassword as firebaseUpdatePassword,
   GoogleAuthProvider,
+  signInWithCredential,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -671,26 +672,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
-      // Check if running inside an Android APK / WebView container
-      const isAndroidWebView = typeof window !== 'undefined' && (
-        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
-        !!(window as any).Capacitor ||
-        !!(window as any).Cordova ||
+      let cred: any = null;
+
+      // Check if running inside standard Capacitor / Android Native container
+      const isCapacitorNative = typeof window !== 'undefined' && (
+        !!(window as any).Capacitor?.isNativePlatform?.() ||
+        !!(window as any).Capacitor?.isNative ||
         window.location.protocol === 'file:' ||
-        (navigator.userAgent.includes('Android') && !navigator.userAgent.includes('Chrome/'))
+        /Capacitor/i.test(navigator.userAgent)
       );
 
-      if (isAndroidWebView) {
-        throw new Error('Google Sign-In is restricted inside embedded Android app views by Google security policy. Please sign in using Email & Password or Guest Mode in this app.');
+      // 1. Try Native Google Auth plugin if available (for Android APK)
+      if (isCapacitorNative || typeof window !== 'undefined') {
+        try {
+          let googleAuthPlugin: any = (window as any).Capacitor?.Plugins?.GoogleAuth;
+          if (!googleAuthPlugin) {
+            const pluginPkg = '@codetrix-studio/capacitor-google-auth';
+            const mod = await import(/* @vite-ignore */ pluginPkg).catch(() => null);
+            if (mod?.GoogleAuth) {
+              googleAuthPlugin = mod.GoogleAuth;
+            }
+          }
+
+          if (googleAuthPlugin) {
+            await googleAuthPlugin.initialize?.({
+              scopes: ['profile', 'email'],
+              grantOfflineAccess: true,
+            }).catch(() => {});
+
+            const googleUser = await googleAuthPlugin.signIn();
+            const idToken = googleUser?.authentication?.idToken || googleUser?.idToken;
+
+            if (idToken) {
+              const credential = GoogleAuthProvider.credential(idToken);
+              cred = await signInWithCredential(auth, credential);
+            }
+          }
+        } catch (nativeErr: any) {
+          console.warn('Native Google Auth plugin notice:', nativeErr);
+          if (nativeErr?.message?.includes('cancel') || nativeErr?.code === '12501' || nativeErr?.code === '10') {
+            throw new Error('Google Sign-In account selection was cancelled.');
+          }
+        }
       }
 
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
+      // 2. If native auth didn't execute or return a credential, use web popup fallback
+      if (!cred) {
+        const isAndroidWebView = typeof window !== 'undefined' && (
+          /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
+          !!(window as any).Capacitor ||
+          !!(window as any).Cordova ||
+          window.location.protocol === 'file:' ||
+          (navigator.userAgent.includes('Android') && !navigator.userAgent.includes('Chrome/'))
+        );
 
-      let cred = null;
-      try {
+        if (isAndroidWebView && !(window as any).Capacitor?.Plugins?.GoogleAuth) {
+          throw new Error('Google Sign-In via browser popup is restricted inside Android app WebViews by Google policy. Please sign in using Email & Password or Guest Mode on this APK version.');
+        }
+
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({
+          prompt: 'select_account'
+        });
+
         // Wrap popup in a 25-second timeout so it never hangs indefinitely
         const popupPromise = signInWithPopup(auth, provider);
         const timeoutPromise = new Promise((_, reject) => {
@@ -698,23 +742,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         cred = await Promise.race([popupPromise, timeoutPromise]) as any;
-      } catch (pErr: any) {
-        if (
-          pErr?.code === 'auth/popup-closed-by-user' ||
-          pErr?.code === 'auth/cancelled-popup-request'
-        ) {
-          throw new Error('Google Sign-In account selection was cancelled.');
-        }
-        if (pErr?.code === 'auth/popup-blocked') {
-          throw new Error('The Google Sign-In popup was blocked by your device/browser. Please allow popups or sign in with Email & Password.');
-        }
-        if (
-          pErr?.code === 'auth/disallowed-webview' ||
-          pErr?.code === 'auth/operation-not-supported-in-this-environment'
-        ) {
-          throw new Error('Google OAuth is restricted inside embedded Android app views by Google policy. Please sign in using Email & Password or Guest Mode on this APK version.');
-        }
-        throw pErr;
       }
 
       if (cred && cred.user) {
@@ -722,6 +749,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (err: any) {
       console.error('Google sign in error:', err);
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        throw new Error('Google Sign-In account selection was cancelled.');
+      }
       if (err?.code === 'auth/disallowed-webview') {
         throw new Error('Google restricts instant sign-in inside embedded WebViews by policy. Please sign in with Email & Password or Guest Mode on this APK version.');
       }
