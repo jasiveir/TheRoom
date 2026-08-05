@@ -360,15 +360,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
         {/* Header Actions */}
         <div className="flex items-center gap-1.5">
-          {chat.type === 'private' && otherUser && (
+          {chat.type === 'private' && (otherUser || otherUserId) && (
             <button
               onClick={() => {
-                startVoiceCall(
-                  otherUser.uid,
-                  otherUser.fullName || otherUser.email?.split('@')[0] || 'Friend',
-                  otherUser.photoURL || '',
-                  chat.id
-                );
+                const targetUid = otherUser?.uid || otherUserId || '';
+                const targetName = otherUser?.fullName || otherDetail?.name || otherUser?.email?.split('@')[0] || 'Friend';
+                const targetAvatar = otherUser?.photoURL || otherDetail?.photoURL || '';
+                startVoiceCall(targetUid, targetName, targetAvatar, chat.id);
               }}
               className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               title="Start Voice Call"

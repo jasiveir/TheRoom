@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserProfile } from '../../types';
-import { X, MessageSquare, UserX, MapPin, Calendar, Hash, ShieldCheck } from 'lucide-react';
+import { X, MessageSquare, UserX, MapPin, Calendar, Hash, ShieldCheck, Phone } from 'lucide-react';
+import { useVoiceCall } from '../../context/VoiceCallContext';
 
 interface FriendProfileModalProps {
   isOpen: boolean;
@@ -19,6 +20,8 @@ export const FriendProfileModal: React.FC<FriendProfileModalProps> = ({
   onOpenUnfriend,
   isFriend
 }) => {
+  const { startVoiceCall } = useVoiceCall();
+
   if (!isOpen || !friend) return null;
 
   return (
@@ -95,10 +98,27 @@ export const FriendProfileModal: React.FC<FriendProfileModalProps> = ({
           {isFriend && (
             <button
               onClick={() => {
+                startVoiceCall(
+                  friend.uid,
+                  friend.fullName || friend.email?.split('@')[0] || 'Friend',
+                  friend.photoURL || ''
+                );
+                onClose();
+              }}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <Phone className="w-4 h-4 fill-current" />
+              <span>Start Voice Call</span>
+            </button>
+          )}
+
+          {isFriend && (
+            <button
+              onClick={() => {
                 onStartChat(friend);
                 onClose();
               }}
-              className="w-full py-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all"
+              className="w-full py-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <MessageSquare className="w-4 h-4" />
               <span>Send Private Message</span>

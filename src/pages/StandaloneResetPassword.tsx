@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, ArrowLeft, Send, CheckCircle, AlertCircle, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import logoImg from '../assets/TheRoom.jpg';
 import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, updatePassword as firebaseUpdatePassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, updatePassword as firebaseUpdatePassword, verifyPasswordResetCode } from 'firebase/auth';
 
 export const StandaloneResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -29,6 +29,7 @@ export const StandaloneResetPassword: React.FC = () => {
   const [emailSentSuccess, setEmailSentSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
 
   const [mode, setMode] = useState<'code' | 'reauth'>(activeCodeOrToken ? 'code' : 'reauth');
 
@@ -38,6 +39,22 @@ export const StandaloneResetPassword: React.FC = () => {
       setResetTokenInput(activeCodeOrToken);
     }
   }, [activeCodeOrToken]);
+
+  // Attempt to extract email from oobCode if coming from Firebase reset link
+  useEffect(() => {
+    if (oobCode && !initialEmail) {
+      verifyPasswordResetCode(auth, oobCode)
+        .then((extractedEmail) => {
+          if (extractedEmail) {
+            setEmail(extractedEmail);
+          }
+        })
+        .catch((err) => {
+          console.warn('verifyPasswordResetCode notice:', err);
+          setCodeNotice('Notice: The standard email action code may have been checked or expired. Please confirm your email address below to proceed.');
+        });
+    }
+  }, [oobCode, initialEmail]);
 
   // Handle resetting password using Active 1-Hour Token or Gmail oobCode
   const handleCodeReset = async (e: React.FormEvent) => {
@@ -240,6 +257,14 @@ export const StandaloneResetPassword: React.FC = () => {
               <div className="p-3.5 bg-[#111111] border border-[#00ff41]/60 text-[#00ff41] text-xs rounded-2xl flex items-center gap-2.5">
                 <CheckCircle className="w-4 h-4 text-[#00ff41] shrink-0" />
                 <span>Reset key email sent to <strong>{email}</strong>! Check your Gmail inbox or Spam folder.</span>
+              </div>
+            )}
+
+            {/* Code Notice */}
+            {codeNotice && !error && (
+              <div className="p-3 bg-[#111111] border border-amber-500/50 text-amber-300 text-xs rounded-xl flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>{codeNotice}</span>
               </div>
             )}
 

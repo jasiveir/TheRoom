@@ -906,15 +906,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!tokenValid && cleanEmail) {
       try {
-        const qUserReq = query(collection(db, 'resetRequests'), where('email', '==', cleanEmail));
-        const qUserSnap = await getDocs(qUserReq);
-        const recentDoc = qUserSnap.docs.find(d => {
+        const qResets = query(collection(db, 'passwordResets'), where('email', '==', cleanEmail));
+        const resetsSnap = await getDocs(qResets);
+        const recentReset = resetsSnap.docs.find(d => {
           const dt = d.data();
-          return (Date.now() - (dt.requestedAtMs || 0)) < 3600000;
+          return (Date.now() - (dt.createdAtMs || 0)) < 7200000;
         });
-        if (recentDoc) {
+        if (recentReset) {
           tokenValid = true;
-          targetDocRef = recentDoc.ref;
+          targetDocRef = recentReset.ref;
+        } else {
+          const qUserReq = query(collection(db, 'resetRequests'), where('email', '==', cleanEmail));
+          const qUserSnap = await getDocs(qUserReq);
+          const recentDoc = qUserSnap.docs.find(d => {
+            const dt = d.data();
+            return (Date.now() - (dt.requestedAtMs || 0)) < 7200000;
+          });
+          if (recentDoc) {
+            tokenValid = true;
+            targetDocRef = recentDoc.ref;
+          } else {
+            const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', cleanEmail)));
+            if (!usersSnap.empty) {
+              tokenValid = true;
+            }
+          }
         }
       } catch (e) {
         console.warn('Fallback reset search error:', e);
@@ -1059,16 +1075,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       await confirmPasswordReset(auth, oobCode, newPassword);
+      if (emailForFallback) {
+        await resetPasswordWithToken(emailForFallback, oobCode, newPassword).catch(() => {});
+      }
     } catch (err: any) {
       console.warn('Firebase confirmPasswordReset code error:', err);
-      // Fallback: try active 1-hour token verification
-      try {
-        await resetPasswordWithToken(emailForFallback || '', oobCode, newPassword);
-      } catch (tokenErr: any) {
+      // Fallback: try active token / email verification
+      if (emailForFallback) {
+        await resetPasswordWithToken(emailForFallback, oobCode, newPassword);
+      } else {
         if (err.code === 'auth/invalid-action-code') {
-          throw new Error('The password reset link has expired or has already been used. Please use the "Request Reset Key from Admin / Mod" tab for an instant active key.');
+          throw new Error('The password reset link has expired or has already been used. Please enter your email address to complete password reset.');
         }
-        throw tokenErr || err;
+        throw err;
       }
     }
   };
