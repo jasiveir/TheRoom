@@ -913,7 +913,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const token = 'rk_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
     const expiresAtMs = Date.now() + 3600000; // Active for 1 hour
-    const resetLink = `${window.location.origin}/reset-password?email=${encodeURIComponent(cleanEmail)}&token=${token}`;
+    const baseUrl = window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp.com')
+      ? window.location.origin
+      : 'https://theroom-box.web.app';
+    const resetLink = `${baseUrl}/reset-password?email=${encodeURIComponent(cleanEmail)}&token=${token}`;
 
     try {
       await setDoc(doc(db, 'passwordResets', token), {
