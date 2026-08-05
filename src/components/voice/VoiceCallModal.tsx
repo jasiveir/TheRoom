@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User } from 'lucide-react';
-import { doc, onSnapshot, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { playGlitchNotificationSound } from '../../lib/audio';
@@ -23,6 +23,12 @@ interface VoiceCallModalProps {
   onEndCall: () => void;
 }
 
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] }
+  ]
+};
+
 export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall }) => {
   const { userProfile } = useAuth();
   const isCaller = userProfile?.uid === call.callerId;
@@ -36,18 +42,42 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
   const localStreamRef = useRef<MediaStream | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const ringingIntervalRef = useRef<any>(null);
+  const candidateQueueRef = useRef<RTCIceCandidateInit[]>([]);
+  const isPeerConnectionInitialized = useRef<boolean>(false);
 
-  // Synchronize Firestore call status changes in real-time
+  // Helper to add candidate or queue it until remote description is set
+  const processCandidate = (candidateData: RTCIceCandidateInit) => {
+    const pc = pcRef.current;
+    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+      pc.addIceCandidate(new RTCIceCandidate(candidateData)).catch((e) => console.warn('ICE candidate add notice:', e));
+    } else {
+      candidateQueueRef.current.push(candidateData);
+    }
+  };
+
+  const flushCandidateQueue = () => {
+    const pc = pcRef.current;
+    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+      while (candidateQueueRef.current.length > 0) {
+        const candidate = candidateQueueRef.current.shift();
+        if (candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(candidate)).catch((e) => console.warn('Queued ICE candidate add notice:', e));
+        }
+      }
+    }
+  };
+
+  // Synchronize Firestore call status changes & remote SDP answers in real-time
   useEffect(() => {
     if (!call.id) return;
 
-    const unsub = onSnapshot(doc(db, 'calls', call.id), (snap) => {
+    const unsub = onSnapshot(doc(db, 'calls', call.id), async (snap) => {
       if (!snap.exists()) {
         handleEndCall();
         return;
       }
-      const data = snap.data() as ActiveVoiceCall;
-      if (data.status) {
+      const data = snap.data();
+      if (data?.status) {
         setCallStatus(data.status);
         if (data.status === 'declined' || data.status === 'ended') {
           setTimeout(() => {
@@ -55,57 +85,141 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
           }, 1200);
         }
       }
+
+      // If caller, listen for receiver's answer SDP
+      if (isCaller && data?.answer && pcRef.current && !pcRef.current.currentRemoteDescription) {
+        try {
+          const rtcAnswer = new RTCSessionDescription(data.answer);
+          await pcRef.current.setRemoteDescription(rtcAnswer);
+          flushCandidateQueue();
+        } catch (err) {
+          console.error('Error setting remote answer description:', err);
+        }
+      }
     });
 
     return () => unsub();
-  }, [call.id]);
+  }, [call.id, isCaller]);
 
-  // Audio stream and WebRTC connection lifecycle
+  // Setup WebRTC connection for CALLER
   useEffect(() => {
-    let timer: any;
+    if (!isCaller || isPeerConnectionInitialized.current) return;
+    isPeerConnectionInitialized.current = true;
 
-    const setupAudioCall = async () => {
+    const initCallerWebRTC = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         localStreamRef.current = stream;
 
-        // Create WebRTC Peer Connection
-        const pc = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
+        const pc = new RTCPeerConnection(ICE_SERVERS);
         pcRef.current = pc;
 
-        // Add local tracks
-        stream.getTracks().forEach((track) => {
-          pc.addTrack(track, stream);
-        });
+        // Add local mic audio tracks
+        stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-        // Handle remote stream
+        // On receiving remote audio stream
         pc.ontrack = (event) => {
           if (remoteAudioRef.current && event.streams[0]) {
             remoteAudioRef.current.srcObject = event.streams[0];
-            remoteAudioRef.current.play().catch(() => {});
+            remoteAudioRef.current.play().catch((e) => console.warn('Remote audio play notice:', e));
           }
         };
 
+        // On generating local ICE candidate
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            addDoc(collection(db, 'calls', call.id, 'callerCandidates'), event.candidate.toJSON()).catch((e) =>
+              console.warn('Error saving caller ICE candidate:', e)
+            );
+          }
+        };
+
+        // Create and set SDP offer
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        await updateDoc(doc(db, 'calls', call.id), {
+          offer: { type: offer.type, sdp: offer.sdp }
+        });
+
+        // Listen for receiver's ICE candidates
+        onSnapshot(collection(db, 'calls', call.id, 'receiverCandidates'), (snapshot) => {
+          snapshot.docChanges().forEach((change) => {
+            if (change.type === 'added') {
+              const candidateData = change.doc.data() as RTCIceCandidateInit;
+              processCandidate(candidateData);
+            }
+          });
+        });
       } catch (err) {
-        console.warn('Microphone access for voice call error:', err);
+        console.error('Failed to setup caller WebRTC audio:', err);
       }
     };
 
-    setupAudioCall();
+    initCallerWebRTC();
+  }, [isCaller, call.id]);
 
-    // Call duration timer when accepted
-    if (callStatus === 'accepted') {
-      timer = setInterval(() => {
-        setDurationSec((prev) => prev + 1);
-      }, 1000);
+  // Handle Accepting call for RECEIVER
+  const handleAcceptCall = async () => {
+    setCallStatus('accepted');
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
+      const pc = new RTCPeerConnection(ICE_SERVERS);
+      pcRef.current = pc;
+
+      // Add local mic audio tracks
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+
+      // On receiving remote audio stream
+      pc.ontrack = (event) => {
+        if (remoteAudioRef.current && event.streams[0]) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+          remoteAudioRef.current.play().catch((e) => console.warn('Remote audio play notice:', e));
+        }
+      };
+
+      // On generating local ICE candidate
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          addDoc(collection(db, 'calls', call.id, 'receiverCandidates'), event.candidate.toJSON()).catch((e) =>
+            console.warn('Error saving receiver ICE candidate:', e)
+          );
+        }
+      };
+
+      // Fetch call doc to get caller's SDP offer
+      const callSnap = await getDoc(doc(db, 'calls', call.id));
+      const callData = callSnap.data();
+
+      if (callData?.offer) {
+        await pc.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        flushCandidateQueue();
+
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+
+        await updateDoc(doc(db, 'calls', call.id), {
+          status: 'accepted',
+          answer: { type: answer.type, sdp: answer.sdp }
+        });
+      }
+
+      // Listen for caller's ICE candidates
+      onSnapshot(collection(db, 'calls', call.id, 'callerCandidates'), (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const candidateData = change.doc.data() as RTCIceCandidateInit;
+            processCandidate(candidateData);
+          }
+        });
+      });
+    } catch (err) {
+      console.error('Error establishing receiver WebRTC audio connection:', err);
     }
-
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [callStatus]);
+  };
 
   // Ringing audio pulse
   useEffect(() => {
@@ -123,16 +237,18 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     };
   }, [callStatus]);
 
-  const handleAcceptCall = async () => {
-    setCallStatus('accepted');
-    try {
-      await updateDoc(doc(db, 'calls', call.id), {
-        status: 'accepted'
-      });
-    } catch (e) {
-      console.error('Error accepting call:', e);
+  // Call duration timer when accepted
+  useEffect(() => {
+    let timer: any;
+    if (callStatus === 'accepted') {
+      timer = setInterval(() => {
+        setDurationSec((prev) => prev + 1);
+      }, 1000);
     }
-  };
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [callStatus]);
 
   const handleDeclineCall = async () => {
     setCallStatus('declined');
@@ -161,16 +277,17 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     if (localStreamRef.current) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = isMuted; // toggle
+        audioTrack.enabled = isMuted; // toggle boolean
         setIsMuted(!isMuted);
       }
     }
   };
 
   const toggleSpeaker = () => {
-    setIsSpeakerOn(!isSpeakerOn);
+    const nextSpeakerState = !isSpeakerOn;
+    setIsSpeakerOn(nextSpeakerState);
     if (remoteAudioRef.current) {
-      remoteAudioRef.current.muted = isSpeakerOn;
+      remoteAudioRef.current.muted = !nextSpeakerState;
     }
   };
 
@@ -185,8 +302,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-between p-6 sm:p-10 font-sans select-none text-white animate-in fade-in duration-300">
-      {/* Hidden audio element for WebRTC remote sound */}
-      <audio ref={remoteAudioRef} autoPlay />
+      {/* Hidden audio element for WebRTC remote audio playback */}
+      <audio ref={remoteAudioRef} autoPlay playsInline />
 
       {/* Top Header info */}
       <div className="w-full max-w-sm flex items-center justify-between text-xs text-zinc-400 font-mono border-b border-zinc-800/80 pb-4">
@@ -223,7 +340,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
 
         <div className="space-y-1.5">
           <h2 className="text-xl sm:text-2xl font-black text-white uppercase tracking-wider">{otherPersonName}</h2>
-          
+
           <div className="text-sm font-mono font-bold tracking-widest text-emerald-400">
             {callStatus === 'calling' && (isCaller ? 'OUTGOING VOICE CALL...' : 'INCOMING VOICE CALL...')}
             {callStatus === 'accepted' && `ACTIVE CALL • ${formatTimer(durationSec)}`}
@@ -264,8 +381,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
               <button
                 onClick={toggleMute}
                 className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                  isMuted 
-                    ? 'bg-rose-950 border-rose-500 text-rose-400' 
+                  isMuted
+                    ? 'bg-rose-950 border-rose-500 text-rose-400'
                     : 'bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800'
                 }`}
                 title={isMuted ? 'Unmute Microphone' : 'Mute Microphone'}
@@ -286,8 +403,8 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
               <button
                 onClick={toggleSpeaker}
                 className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all cursor-pointer ${
-                  !isSpeakerOn 
-                    ? 'bg-amber-950 border-amber-500 text-amber-400' 
+                  !isSpeakerOn
+                    ? 'bg-amber-950 border-amber-500 text-amber-400'
                     : 'bg-zinc-900 border-zinc-700 text-white hover:bg-zinc-800'
                 }`}
                 title={isSpeakerOn ? 'Mute Speaker' : 'Enable Speaker'}
@@ -305,3 +422,4 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     </div>
   );
 };
+
