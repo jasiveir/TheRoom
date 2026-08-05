@@ -1,12 +1,12 @@
 {
-  "projectId": "zany-throne-z2l12",
-  "appId": "1:243866788757:web:ded259a7263909c32a8c9c",
-  "apiKey": "AIzaSyBvIQ6fqD0uGlBUQDnALsasUpQWsQC7Lio",
-  "authDomain": "zany-throne-z2l12.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-privatechat-583b5d9b-9f43-49cd-ab5a-ec8825f5fbc8",
-  "storageBucket": "zany-throne-z2l12.firebasestorage.app",
-  "messagingSenderId": "243866788757",
+  "projectId": "theroom-box",
+  "appId": "1:1099179138333:web:54856f2d59bd496977d5f4",
+  "apiKey": "AIzaSyD8F0g_EiL6NXYm_mjjlzT4N5KOuzSXi_0",
+  "authDomain": "theroom-box.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "theroom-box.firebasestorage.app",
+  "messagingSenderId": "1099179138333",
   "measurementId": "",
-  "oAuthClientId": "243866788757-6tak9ebm0iks7sf7i98l6lepcivkol8v.apps.googleusercontent.com",
+  "oAuthClientId": "",
   "recaptchaSiteKey": ""
 }

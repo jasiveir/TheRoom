@@ -651,7 +651,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error('Google sign in error:', err);
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
-        throw new Error("This web domain is not authorized in Firebase. Please add this preview domain to your Firebase Console -> Authentication -> Settings -> Authorized Domains, or sign in with your Username/Password.");
+        const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your-domain';
+        throw new Error(`Domain "${currentHost}" is not authorized in Firebase Auth. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains -> Add Domain: "${currentHost}" (or use Username/Password log in).`);
       }
       throw err;
     }
@@ -683,7 +684,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.error('Error connecting Google Account:', err);
       if (err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain')) {
-        throw new Error("This domain is not authorized in Firebase Auth settings. Add this host URL to Firebase Console -> Auth -> Authorized Domains.");
+        const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'your-domain';
+        throw new Error(`Domain "${currentHost}" is not authorized in Firebase Auth. Go to Firebase Console -> Authentication -> Settings -> Authorized Domains -> Add Domain: "${currentHost}".`);
       }
       throw new Error(err.message || 'Failed to connect Google account.');
     }
