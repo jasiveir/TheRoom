@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
+import { useVoiceCall } from '../../context/VoiceCallContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
 import { Chat, Message, UserProfile } from '../../types';
 import { sendMessage, markChatAsRead, markMessageRead, setTypingState, deleteChatById, deleteMessageForEveryone } from '../../lib/chatService';
@@ -24,6 +25,7 @@ import {
   ArrowLeft, 
   Info, 
   UserX, 
+  Phone,
   ShieldAlert,
   Terminal,
   Activity,
@@ -52,6 +54,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onOpenUnfriendModal
 }) => {
   const { userProfile } = useAuth();
+  const { startVoiceCall } = useVoiceCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState('');
   const [mediaUrlInput, setMediaUrlInput] = useState('');
@@ -356,7 +359,25 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
+          {chat.type === 'private' && otherUser && (
+            <button
+              onClick={() => {
+                startVoiceCall(
+                  otherUser.uid,
+                  otherUser.fullName || otherUser.email?.split('@')[0] || 'Friend',
+                  otherUser.photoURL || '',
+                  chat.id
+                );
+              }}
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              title="Start Voice Call"
+            >
+              <Phone className="w-3.5 h-3.5 fill-current" />
+              <span className="hidden sm:inline">Voice Call</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowSearch(!showSearch)}
             className={`p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-all cursor-pointer ${

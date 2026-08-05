@@ -34,12 +34,7 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
   if (!isOpen) return null;
 
   const handleOpenScanner = () => {
-    const granted = localStorage.getItem('apk_camera_permission_allowed') === 'true';
-    if (granted) {
-      setIsCameraScannerOpen(true);
-    } else {
-      setIsDevicePermissionOpen(true);
-    }
+    setIsCameraScannerOpen(true);
   };
 
   const handlePermissionAllowed = () => {

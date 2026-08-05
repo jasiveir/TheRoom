@@ -9,12 +9,15 @@ import { signInWithEmailAndPassword, updatePassword as firebaseUpdatePassword } 
 export const StandaloneResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { resetPassword, confirmPasswordResetWithCode } = useAuth();
+  const { resetPassword, confirmPasswordResetWithCode, resetPasswordWithToken } = useAuth();
 
   const oobCode = searchParams.get('oobCode') || searchParams.get('code') || '';
+  const tokenParam = searchParams.get('token') || '';
+  const activeCodeOrToken = tokenParam || oobCode;
   const initialEmail = searchParams.get('email') || '';
 
   const [email, setEmail] = useState(initialEmail);
+  const [resetTokenInput, setResetTokenInput] = useState(activeCodeOrToken);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,22 +30,25 @@ export const StandaloneResetPassword: React.FC = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<'code' | 'reauth'>(oobCode ? 'code' : 'reauth');
+  const [mode, setMode] = useState<'code' | 'reauth'>(activeCodeOrToken ? 'code' : 'reauth');
 
   useEffect(() => {
-    if (oobCode) {
+    if (activeCodeOrToken) {
       setMode('code');
+      setResetTokenInput(activeCodeOrToken);
     }
-  }, [oobCode]);
+  }, [activeCodeOrToken]);
 
-  // Handle resetting password using Gmail link oobCode
+  // Handle resetting password using Active 1-Hour Token or Gmail oobCode
   const handleCodeReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setResetSuccess(false);
 
-    if (!oobCode) {
-      setError('Invalid or missing password reset code. Please request a new email reset link.');
+    const activeToken = resetTokenInput.trim() || activeCodeOrToken;
+
+    if (!activeToken) {
+      setError('Invalid or missing password reset key code. Please request a reset key email or ask an admin.');
       return;
     }
 
@@ -59,14 +65,29 @@ export const StandaloneResetPassword: React.FC = () => {
     setLoading(true);
 
     try {
-      await confirmPasswordResetWithCode(oobCode, newPassword);
+      if (tokenParam || activeToken.startsWith('rk_')) {
+        await resetPasswordWithToken(email, activeToken, newPassword);
+      } else {
+        await confirmPasswordResetWithCode(activeToken, newPassword, email);
+      }
       setResetSuccess(true);
     } catch (err: any) {
       console.error('Confirm password reset error:', err);
+      // Fallback attempt: if code didn't work directly, try token verification for email
+      if (email) {
+        try {
+          await resetPasswordWithToken(email, activeToken, newPassword);
+          setResetSuccess(true);
+          return;
+        } catch (fallbackErr) {
+          // ignore
+        }
+      }
+
       if (err.code === 'auth/invalid-action-code') {
-        setError('The password reset link has expired or has already been used. Please request a new reset email.');
+        setError('The password reset link has expired or has already been used. Active 1-hour keys are available via the "Request Reset Key from Admin" tab.');
       } else {
-        setError(err.message || 'Could not reset password. Please verify your reset link.');
+        setError(err.message || 'Could not reset password. Please verify your reset link or email.');
       }
     } finally {
       setLoading(false);
@@ -226,8 +247,25 @@ export const StandaloneResetPassword: React.FC = () => {
             {mode === 'code' ? (
               <form onSubmit={handleCodeReset} className="space-y-4">
                 <div className="p-3 bg-[#111111] border border-[#00ff41]/30 rounded-xl text-[11px] text-[#00ff41]/80">
-                  <span className="font-bold text-[#00ff41] block mb-0.5">Reset Key Code Verified</span>
-                  Enter your new password to complete account recalibration.
+                  <span className="font-bold text-[#00ff41] block mb-0.5">1-Hour Active Reset Key Detected</span>
+                  Enter your registered account email and new password to complete account recalibration.
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#00ff41] mb-1 uppercase tracking-wider">
+                    Target Gmail / Account Email
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="your.email@gmail.com"
+                      className="w-full pl-9 pr-3 py-2.5 bg-[#111111] border border-[#00ff41]/40 rounded-xl text-xs text-[#00ff41] placeholder-[#00ff41]/40 focus:outline-none focus:border-[#00ff41]"
+                      required
+                    />
+                    <Mail className="w-4 h-4 text-[#00ff41]/50 absolute left-3 top-3" />
+                  </div>
                 </div>
 
                 <div>

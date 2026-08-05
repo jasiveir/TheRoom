@@ -3,6 +3,7 @@ import {
   collection, 
   onSnapshot, 
   doc, 
+  setDoc,
   updateDoc, 
   deleteDoc, 
   serverTimestamp, 
@@ -47,6 +48,18 @@ import {
   AlertOctagon
 } from 'lucide-react';
 
+interface ResetKeyRequest {
+  id: string;
+  email: string;
+  prompt: string;
+  token: string;
+  resetLink: string;
+  status: 'pending' | 'approved' | 'completed' | 'dismissed';
+  requestedAtMs: number;
+  expiresAtMs: number;
+  createdAt?: any;
+}
+
 export const AdminDashboard: React.FC = () => {
   const { template } = useLayoutTemplate();
   const { userProfile, isAdmin, isMainAdmin, resetPassword } = useAuth();
@@ -54,6 +67,9 @@ export const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'blocked' | 'deactivated' | 'online' | 'moderators'>('all');
+
+  // Reset Key Requests state
+  const [resetRequests, setResetRequests] = useState<ResetKeyRequest[]>([]);
 
   // Selected Users State for Batch Operations
   const [selectedUids, setSelectedUids] = useState<string[]>([]);
@@ -112,11 +128,63 @@ export const AdminDashboard: React.FC = () => {
       setSystemSettings(settings);
     });
 
+    const qReqs = query(collection(db, 'resetRequests'), orderBy('requestedAtMs', 'desc'));
+    const unsubscribeReqs = onSnapshot(qReqs, (snapshot) => {
+      const list: ResetKeyRequest[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<ResetKeyRequest, 'id'>)
+      }));
+      setResetRequests(list);
+    }, (err) => {
+      console.warn('Error fetching resetRequests:', err);
+    });
+
     return () => {
       unsubscribeUsers();
       unsubscribeSys();
+      unsubscribeReqs();
     };
   }, [isAdmin]);
+
+  const handleApproveResetRequest = async (req: ResetKeyRequest) => {
+    try {
+      const expiresAtMs = Date.now() + 3600000;
+      await updateDoc(doc(db, 'resetRequests', req.id), {
+        status: 'approved',
+        expiresAtMs
+      });
+
+      if (req.token) {
+        await setDoc(doc(db, 'passwordResets', req.token), {
+          email: req.email,
+          token: req.token,
+          createdAtMs: Date.now(),
+          expiresAtMs,
+          used: false,
+          approvedByAdmin: true
+        }, { merge: true });
+      }
+
+      const link = `${window.location.origin}/reset-password?email=${encodeURIComponent(req.email)}&token=${req.token}`;
+      await navigator.clipboard.writeText(link);
+      showToast(`Approved! 1-Hour Active Reset Key Link for ${req.email} copied to clipboard.`, 'success');
+    } catch (e: any) {
+      console.error('Approve reset error:', e);
+      showToast('Failed to approve request: ' + e.message, 'error');
+    }
+  };
+
+  const handleDismissResetRequest = async (reqId: string) => {
+    try {
+      await updateDoc(doc(db, 'resetRequests', reqId), {
+        status: 'dismissed'
+      });
+      showToast('Reset Key request dismissed.', 'info');
+    } catch (e: any) {
+      console.error('Dismiss reset error:', e);
+      showToast('Failed to dismiss request.', 'error');
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -497,6 +565,127 @@ export const AdminDashboard: React.FC = () => {
             </div>
             <p className="text-2xl font-black text-purple-700">{moderatorsCount}</p>
           </div>
+        </div>
+
+        {/* User Reset Key Requests Section */}
+        <div className="bg-white border-2 border-emerald-500/40 rounded-xl p-5 shadow-xs space-y-4 font-mono">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#e2dfd2]">
+            <div>
+              <h3 className="text-sm font-bold text-black flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-emerald-600" />
+                <span>USER RESET KEY REQUESTS (RANDOM PROMPT VERIFIED)</span>
+                {resetRequests.filter(r => r.status === 'pending').length > 0 && (
+                  <span className="px-2 py-0.5 bg-amber-500 text-black text-[10px] font-black rounded-full animate-pulse">
+                    {resetRequests.filter(r => r.status === 'pending').length} PENDING
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-zinc-600 mt-0.5">
+                Requests submitted by users who typed their random authorization sentence prompt.
+              </p>
+            </div>
+
+            <span className="text-xs font-bold text-zinc-500">
+              Total Requests: {resetRequests.length}
+            </span>
+          </div>
+
+          {resetRequests.length === 0 ? (
+            <div className="p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-center text-xs text-zinc-500">
+              No reset key requests submitted by users.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {resetRequests.slice(0, 10).map((req) => {
+                const isPending = req.status === 'pending';
+                const isApproved = req.status === 'approved';
+                const isCompleted = req.status === 'completed';
+                const isDismissed = req.status === 'dismissed';
+
+                return (
+                  <div
+                    key={req.id}
+                    className={`p-4 rounded-xl border text-xs space-y-2 transition-all ${
+                      isPending
+                        ? 'bg-amber-50/50 border-amber-300 shadow-xs'
+                        : isApproved
+                        ? 'bg-emerald-50/50 border-emerald-300'
+                        : isCompleted
+                        ? 'bg-blue-50/50 border-blue-200'
+                        : 'bg-zinc-50 border-zinc-200 opacity-60'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/10 pb-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-black">{req.email}</span>
+                          <span className={`px-2 py-0.5 text-[9px] font-black uppercase rounded ${
+                            isPending
+                              ? 'bg-amber-500 text-black'
+                              : isApproved
+                              ? 'bg-emerald-600 text-white'
+                              : isCompleted
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-zinc-400 text-white'
+                          }`}>
+                            {req.status}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 block">
+                          Ticket ID: <code className="bg-white px-1 border rounded">{req.id}</code> &bull; Requested: {new Date(req.requestedAtMs).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isPending && (
+                          <button
+                            type="button"
+                            onClick={() => handleApproveResetRequest(req)}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                            <span>Approve & Copy 1-Hour Link</span>
+                          </button>
+                        )}
+
+                        {!isDismissed && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const link = `${window.location.origin}/reset-password?email=${encodeURIComponent(req.email)}&token=${req.token}`;
+                              await navigator.clipboard.writeText(link);
+                              showToast(`Reset key link for ${req.email} copied!`, 'info');
+                            }}
+                            className="px-2.5 py-1.5 bg-white border border-zinc-300 hover:bg-zinc-100 text-black font-bold text-[11px] rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <KeyRound className="w-3.5 h-3.5 text-zinc-600" />
+                            <span>Copy Link</span>
+                          </button>
+                        )}
+
+                        {!isDismissed && !isCompleted && (
+                          <button
+                            type="button"
+                            onClick={() => handleDismissResetRequest(req.id)}
+                            className="px-2 py-1.5 text-zinc-500 hover:text-rose-600 text-[11px] font-bold underline cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 bg-white border border-zinc-200 rounded-lg text-[11px] space-y-1">
+                      <span className="font-bold text-zinc-700 block">User Typed Challenge Prompt:</span>
+                      <p className="font-mono text-zinc-900 bg-zinc-50 p-1.5 rounded border border-zinc-200 select-all font-semibold break-all">
+                        "{req.prompt}"
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Global Chat Message Data Wipe */}

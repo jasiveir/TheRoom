@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Terminal, QrCode, Download } from 'lucide-react';
+import { MessageSquare, Users, Bell, Settings, Shield, PlusCircle, UserPlus, Terminal, QrCode, Download, KeyRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useLayoutTemplate } from '../../context/LayoutTemplateContext';
@@ -49,6 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'SIGNAL LOGS',
       icon: Bell,
       badge: unreadCount
+    },
+    {
+      id: 'reset-key',
+      label: 'RESET KEY REQUEST',
+      icon: KeyRound,
+      badge: 0
     },
     {
       id: 'settings',

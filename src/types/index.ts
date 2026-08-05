@@ -16,6 +16,10 @@ export interface UserProfile {
   phoneNumber?: string;
   dateOfBirth?: string;
   accountStatus: AccountStatus;
+  googleConnected?: boolean;
+  googleEmail?: string;
+  passwordHash?: string;
+  password?: string;
   isAdmin?: boolean;
   isModerator?: boolean;
   isMainAdmin?: boolean;

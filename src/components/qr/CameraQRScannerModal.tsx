@@ -20,6 +20,33 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
   const [selectedCameraId, setSelectedCameraId] = useState<string>('');
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const readerElementId = 'qr-camera-stream-reader';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const html5Qrcode = new Html5Qrcode(readerElementId);
+      const decodedText = await html5Qrcode.scanFile(file, true);
+      playNotificationSound();
+      let cleanCode = decodedText.trim();
+      if (cleanCode.includes('code=')) {
+        try {
+          const url = new URL(cleanCode);
+          cleanCode = url.searchParams.get('code') || cleanCode;
+        } catch (err) {
+          // Ignore URL parse error
+        }
+      }
+      stopScanner();
+      onScanSuccess(cleanCode.toUpperCase());
+      onClose();
+    } catch (err: any) {
+      console.error('File scan error:', err);
+      setError('Could not detect a valid QR code from the selected image.');
+    }
+  };
 
   const stopScanner = async () => {
     if (html5QrcodeRef.current) {
@@ -40,72 +67,79 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
     setError(null);
     await stopScanner();
 
-    try {
-      // Force trigger native system camera permission request prompt
-      if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
-        try {
-          const testStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: 'environment' } }
-          });
-          // Immediately release tracks so Html5Qrcode can bind the camera stream
-          testStream.getTracks().forEach(track => track.stop());
-        } catch (mediaErr: any) {
-          console.warn('Native getUserMedia request returned error:', mediaErr);
-        }
+    // 1. Explicitly prompt browser for camera permission first if supported
+    if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } } });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (permissionErr) {
+        console.warn('Direct getUserMedia prompt error:', permissionErr);
       }
+    }
 
+    // 2. Request browser notification permission if available
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    try {
+      // Direct call to Html5Qrcode.getCameras or start with environment constraint
       const qrScanner = new Html5Qrcode(readerElementId);
       html5QrcodeRef.current = qrScanner;
 
-      // Always default and lock to device main back camera
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length > 0) {
-        // Find main rear/environment camera device if available
-        const mainBackCam = devices.find(d => 
-          d.label.toLowerCase().includes('back') || 
-          d.label.toLowerCase().includes('rear') || 
-          d.label.toLowerCase().includes('environment') || 
-          d.label.toLowerCase().includes('0')
-        ) || devices[devices.length - 1]; // fallback to last device in array (usually main camera on Android)
+      let targetCamIdOrConfig: any = { facingMode: 'environment' };
 
-        const targetCamId = mainBackCam.id;
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        if (devices && devices.length > 0) {
+          const mainBackCam = devices.find(d => 
+            d.label.toLowerCase().includes('back') || 
+            d.label.toLowerCase().includes('rear') || 
+            d.label.toLowerCase().includes('environment') || 
+            d.label.toLowerCase().includes('0')
+          ) || devices[devices.length - 1];
 
-        await qrScanner.start(
-          targetCamId,
-          {
-            fps: 15,
-            qrbox: { width: 220, height: 220 },
-            aspectRatio: 1.0
-          },
-          (decodedText) => {
-            playNotificationSound();
-            let cleanCode = decodedText.trim();
-            // Handle URL links containing ?code= or raw code
-            if (cleanCode.includes('code=')) {
-              try {
-                const url = new URL(cleanCode);
-                cleanCode = url.searchParams.get('code') || cleanCode;
-              } catch (e) {
-                // Ignore URL parse error
-              }
-            }
-            stopScanner();
-            onScanSuccess(cleanCode.toUpperCase());
-            onClose();
-          },
-          (errorMessage) => {
-            // Ignore frame scan failures
-          }
-        );
-        setIsScanning(true);
-      } else {
-        setError('No camera detected. Please grant camera permission in phone settings and retry.');
+          targetCamIdOrConfig = mainBackCam.id;
+        }
+      } catch (camListErr) {
+        console.warn('Could not list cameras via getCameras, falling back to facingMode constraint:', camListErr);
       }
+
+      await qrScanner.start(
+        targetCamIdOrConfig,
+        {
+          fps: 15,
+          qrbox: { width: 220, height: 220 },
+          aspectRatio: 1.0
+        },
+        (decodedText) => {
+          playNotificationSound();
+          let cleanCode = decodedText.trim();
+          if (cleanCode.includes('code=')) {
+            try {
+              const url = new URL(cleanCode);
+              cleanCode = url.searchParams.get('code') || cleanCode;
+            } catch (e) {
+              // Ignore URL parse error
+            }
+          }
+          stopScanner();
+          onScanSuccess(cleanCode.toUpperCase());
+          onClose();
+        },
+        () => {
+          // Ignore frame scan failures
+        }
+      );
+      setIsScanning(true);
     } catch (err: any) {
       console.error('Camera QR scanner error:', err);
-      setError(
-        err?.message || 'Could not access device camera. Please grant camera permissions in your device settings.'
-      );
+      const msg = err?.message || String(err);
+      if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('notallowed')) {
+        setError('Camera access was blocked by browser/OS permissions. Please allow camera in your browser address bar/settings, or upload a QR image below.');
+      } else {
+        setError(msg || 'Could not access device camera. Please grant camera permissions in your device settings.');
+      }
       setIsScanning(false);
     }
   };
@@ -176,24 +210,52 @@ export const CameraQRScannerModal: React.FC<CameraQRScannerModalProps> = ({
           )}
 
           {error && (
-            <div className="absolute inset-0 bg-zinc-950/95 flex flex-col items-center justify-center p-4 text-center">
+            <div className="absolute inset-0 bg-zinc-950/95 flex flex-col items-center justify-center p-4 text-center z-20">
               <AlertCircle className="w-8 h-8 text-red-400 mb-2" />
-              <p className="text-xs text-red-300 font-medium mb-3">{error}</p>
-              <button
-                onClick={() => startScanner(selectedCameraId)}
-                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold border border-zinc-700 flex items-center gap-1.5 cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Retry Camera</span>
-              </button>
+              <p className="text-xs text-red-300 font-medium mb-3 leading-relaxed">{error}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => startScanner(selectedCameraId)}
+                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg text-xs font-bold border border-zinc-700 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Camera</span>
+                </button>
+
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-green-500 hover:bg-green-400 text-black rounded-lg text-xs font-black flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Upload QR Image</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
 
+        {/* Hidden file input for QR code image scanning fallback */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleScanFile}
+          accept="image/*"
+          className="hidden"
+        />
+
         {/* Instructions footer */}
-        <div className="mt-4 p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-[11px] text-zinc-400 flex items-center gap-2">
-          <Sparkles className="w-4 h-4 text-green-400 shrink-0" />
-          <span>Point device main camera at a friend's QR code to search automatically.</span>
+        <div className="mt-4 p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-[11px] text-zinc-400 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-green-400 shrink-0" />
+            <span>Point camera at QR or upload QR image.</span>
+          </div>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-2.5 py-1 bg-black hover:bg-zinc-800 text-green-400 border border-green-500/40 rounded-lg text-[10px] font-mono font-bold shrink-0 cursor-pointer"
+          >
+            Upload Image
+          </button>
         </div>
       </div>
     </div>

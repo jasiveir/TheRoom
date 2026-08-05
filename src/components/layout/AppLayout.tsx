@@ -17,6 +17,7 @@ import { GroupDetailsModal } from '../chat/GroupDetailsModal';
 import { UserQRCodeModal } from '../qr/UserQRCodeModal';
 import { DownloadApkModal } from '../download/DownloadApkModal';
 import { ApkPermissionModal } from '../notifications/ApkPermissionModal';
+import { AndroidPushNotificationBanner } from '../notifications/AndroidPushNotificationBanner';
 import { AndroidLockOverlay } from './AndroidLockOverlay';
 import { ChatsList } from '../chat/ChatsList';
 import { ChatView } from '../chat/ChatView';
@@ -24,6 +25,7 @@ import { FriendList } from '../friends/FriendList';
 import { NotificationsPage } from '../../pages/NotificationsPage';
 import { SettingsPage } from '../../pages/SettingsPage';
 import { AdminDashboard } from '../../pages/AdminDashboard';
+import { ResetKeyRequestPanel } from '../../pages/ResetKeyRequestPanel';
 import { Chat, UserProfile } from '../../types';
 import { MessageSquare } from 'lucide-react';
 
@@ -245,6 +247,7 @@ export const AppLayout: React.FC = () => {
           )}
 
           {activeTab === 'notifications' && <NotificationsPage onOpenRequests={handleOpenRequests} />}
+          {activeTab === 'reset-key' && <ResetKeyRequestPanel />}
           {activeTab === 'settings' && <SettingsPage />}
           {activeTab === 'admin' && <AdminDashboard />}
         </main>
@@ -326,6 +329,12 @@ export const AppLayout: React.FC = () => {
       <ApkPermissionModal
         isOpen={showApkPermissions}
         onClose={() => setShowApkPermissions(false)}
+      />
+
+      <AndroidPushNotificationBanner
+        onNavigateToChat={(chatId) => {
+          setActiveTab('chats');
+        }}
       />
     </div>
   );

@@ -22,9 +22,9 @@
     overflow-x: hidden;
   }
 
-  /* Vintage Terminal Input Caret */
+  /* Grey Terminal Input Caret */
   input, textarea, select {
-    caret-color: #000000 !important;
+    caret-color: #a1a1aa !important;
   }
 
   /* Vintage Clean Scrollbars */

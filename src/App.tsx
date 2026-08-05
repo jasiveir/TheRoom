@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import logoImg from './assets/TheRoom.jpg';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { VoiceCallProvider } from './context/VoiceCallContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { LayoutTemplateProvider } from './context/LayoutTemplateContext';
 import { MatrixTransitionProvider } from './context/MatrixTransitionContext';
@@ -56,7 +57,8 @@ export default function App() {
         <MatrixTransitionProvider>
           <AuthProvider>
             <NotificationProvider>
-              <BrowserRouter>
+              <VoiceCallProvider>
+                <BrowserRouter>
                 <Routes>
                   {/* Public Routes */}
                   <Route
@@ -146,7 +148,8 @@ export default function App() {
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </BrowserRouter>
-            </NotificationProvider>
+            </VoiceCallProvider>
+          </NotificationProvider>
           </AuthProvider>
         </MatrixTransitionProvider>
       </LayoutTemplateProvider>
