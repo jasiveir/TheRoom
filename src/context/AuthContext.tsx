@@ -671,6 +671,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      // Check if running inside an Android APK / WebView container
+      const isAndroidWebView = typeof window !== 'undefined' && (
+        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
+        !!(window as any).Capacitor ||
+        !!(window as any).Cordova ||
+        window.location.protocol === 'file:' ||
+        (navigator.userAgent.includes('Android') && !navigator.userAgent.includes('Chrome/'))
+      );
+
+      if (isAndroidWebView) {
+        throw new Error('Google Sign-In is restricted inside embedded Android app views by Google security policy. Please sign in using Email & Password or Guest Mode in this app.');
+      }
+
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
         prompt: 'select_account'
@@ -678,7 +691,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       let cred = null;
       try {
-        cred = await signInWithPopup(auth, provider);
+        // Wrap popup in a 25-second timeout so it never hangs indefinitely
+        const popupPromise = signInWithPopup(auth, provider);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Google Sign-In request timed out. Please try again or use Email & Password.')), 25000);
+        });
+
+        cred = await Promise.race([popupPromise, timeoutPromise]) as any;
       } catch (pErr: any) {
         if (
           pErr?.code === 'auth/popup-closed-by-user' ||
@@ -687,7 +706,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Google Sign-In account selection was cancelled.');
         }
         if (pErr?.code === 'auth/popup-blocked') {
-          throw new Error('The Google Sign-In popup was blocked by your browser/device. Please allow popups or use Email & Password.');
+          throw new Error('The Google Sign-In popup was blocked by your device/browser. Please allow popups or sign in with Email & Password.');
         }
         if (
           pErr?.code === 'auth/disallowed-webview' ||
@@ -721,9 +740,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      const isAndroidWebView = typeof window !== 'undefined' && (
+        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
+        !!(window as any).Capacitor ||
+        !!(window as any).Cordova ||
+        window.location.protocol === 'file:'
+      );
+
+      if (isAndroidWebView) {
+        throw new Error('Connecting Google account via browser popup is restricted inside Android app WebViews.');
+      }
+
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const res = await signInWithPopup(auth, provider);
+
+      const popupPromise = signInWithPopup(auth, provider);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Google connection request timed out.')), 25000);
+      });
+
+      const res = await Promise.race([popupPromise, timeoutPromise]) as any;
 
       if (res && res.user) {
         const gEmail = res.user.email || '';
