@@ -12,9 +12,27 @@ export const StandaloneResetPassword: React.FC = () => {
   const { resetPassword, confirmPasswordResetWithCode, resetPasswordWithToken } = useAuth();
 
   const oobCode = searchParams.get('oobCode') || searchParams.get('code') || '';
-  const tokenParam = searchParams.get('token') || '';
+  const rawTokenParam = searchParams.get('token') || '';
+  const rawEmailParam = searchParams.get('email') || '';
+
+  // Safely decode any multi-encoded URL parameters (e.g., %2540 -> %40 -> @)
+  const decodeClean = (val: string) => {
+    let result = val.trim();
+    try {
+      while (result.includes('%')) {
+        const decoded = decodeURIComponent(result);
+        if (decoded === result) break;
+        result = decoded;
+      }
+    } catch (e) {
+      // fallback
+    }
+    return result;
+  };
+
+  const tokenParam = decodeClean(rawTokenParam);
+  const initialEmail = decodeClean(rawEmailParam);
   const activeCodeOrToken = tokenParam || oobCode;
-  const initialEmail = searchParams.get('email') || '';
 
   const [email, setEmail] = useState(initialEmail);
   const [resetTokenInput, setResetTokenInput] = useState(activeCodeOrToken);
