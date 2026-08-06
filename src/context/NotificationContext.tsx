@@ -36,10 +36,8 @@ export const triggerOSNotification = (title: string, body: string) => {
             title: cleanTitle,
             body: cleanBody,
             id: Math.floor(Math.random() * 1000000),
-            schedule: { at: new Date(Date.now() + 50) },
+            schedule: { at: new Date(Date.now() + 100) },
             channelId: 'theroom_messages',
-            sound: 'glitch_alert.wav',
-            smallIcon: 'ic_stat_icon_config_sample',
             actionTypeId: 'OPEN_APP'
           }]
         }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
