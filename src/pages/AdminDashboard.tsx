@@ -4,6 +4,7 @@ import {
   onSnapshot, 
   doc, 
   setDoc,
+  addDoc,
   updateDoc, 
   deleteDoc, 
   serverTimestamp, 
@@ -166,8 +167,45 @@ export const AdminDashboard: React.FC = () => {
       }
 
       const link = `${window.location.origin}/reset-password?email=${encodeURIComponent(req.email)}&token=${req.token}`;
+
+      // 1. Notify user in notifications collection if user exists
+      try {
+        const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', req.email.trim().toLowerCase())));
+        if (!uSnap.empty) {
+          const targetUid = uSnap.docs[0].id;
+          await addDoc(collection(db, 'notifications'), {
+            userId: targetUid,
+            title: '🎉 Password Reset Approved by Admin/Mod!',
+            body: `Your password reset request was approved! Click to open single-use reset link: ${link}`,
+            link: `/reset-password?email=${encodeURIComponent(req.email)}&token=${req.token}`,
+            token: req.token,
+            type: 'system',
+            read: false,
+            createdAt: serverTimestamp()
+          });
+        }
+      } catch (e) {
+        console.warn('Error pushing reset notification to user:', e);
+      }
+
+      // 2. Add to Signal Logs
+      try {
+        await addDoc(collection(db, 'signalLogs'), {
+          type: 'reset_key_approved',
+          email: req.email,
+          requestId: req.id,
+          token: req.token,
+          resetLink: link,
+          approvedBy: userProfile?.email || 'Admin/Mod',
+          createdAt: serverTimestamp(),
+          message: `Password Reset Approved for ${req.email}`
+        });
+      } catch (e) {
+        console.warn('Error writing signal log for approval:', e);
+      }
+
       await navigator.clipboard.writeText(link);
-      showToast(`Approved! 1-Hour Active Reset Key Link for ${req.email} copied to clipboard.`, 'success');
+      showToast(`Approved! Single-use Reset Key Link for ${req.email} copied to clipboard & notification dispatched.`, 'success');
     } catch (e: any) {
       console.error('Approve reset error:', e);
       showToast('Failed to approve request: ' + e.message, 'error');

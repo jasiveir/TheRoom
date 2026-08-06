@@ -13,6 +13,7 @@ import { SignUp } from './pages/SignUp';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { StandaloneResetPassword } from './pages/StandaloneResetPassword';
 import { AuthSelection } from './pages/AuthSelection';
+import { ApprovedResetPopup } from './components/notifications/ApprovedResetPopup';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -59,7 +60,8 @@ export default function App() {
             <NotificationProvider>
               <VoiceCallProvider>
                 <BrowserRouter>
-                <Routes>
+                  <ApprovedResetPopup />
+                  <Routes>
                   {/* Public Routes */}
                   <Route
                     path="/welcome"

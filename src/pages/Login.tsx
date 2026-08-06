@@ -134,8 +134,11 @@ export const Login: React.FC = () => {
               <label className="block text-xs font-bold text-black uppercase tracking-wider">
                 Password
               </label>
-              <Link to="/forgot-password" className="text-xs text-zinc-600 hover:text-black hover:underline">
-                Reset Key?
+              <Link 
+                to="/forgot-password" 
+                className="text-[11px] font-bold text-zinc-600 hover:text-black transition-colors uppercase tracking-wider hover:underline"
+              >
+                Request Reset Key?
               </Link>
             </div>
             <div className="relative">

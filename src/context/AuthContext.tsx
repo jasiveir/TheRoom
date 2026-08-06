@@ -949,7 +949,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { token, resetLink };
   };
 
-  const requestAdminResetKey = async (email: string, typedPrompt: string, challengePrompt: string) => {
+  const requestAdminResetKey = async (email: string, typedPrompt: string, challengePrompt: string, deviceId?: string) => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
       throw new Error('Please enter your email address.');
@@ -967,6 +967,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await setDoc(doc(db, 'passwordResets', token), {
       email: cleanEmail,
       token,
+      deviceId: deviceId || null,
       createdAtMs: Date.now(),
       expiresAtMs,
       used: false,
@@ -982,11 +983,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       prompt: typedPrompt,
       token,
       resetLink,
+      deviceId: deviceId || null,
       status: 'pending',
       requestedAtMs: Date.now(),
       expiresAtMs,
       createdAt: serverTimestamp()
     });
+
+    // Also write to signal logs for Admins/Mods
+    try {
+      await setDoc(doc(db, 'signalLogs', 'log_reset_' + requestId), {
+        id: 'log_reset_' + requestId,
+        type: 'reset_key_request',
+        email: cleanEmail,
+        requestId,
+        token,
+        resetLink,
+        prompt: typedPrompt,
+        createdAt: serverTimestamp(),
+        message: `PASSWORD RESET REQUEST from ${cleanEmail} logged in signal logs`
+      });
+    } catch (e) {
+      console.warn('Error writing signal log:', e);
+    }
 
     return { token, resetLink, requestId };
   };
@@ -1007,13 +1026,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const resetDocSnap = await getDoc(doc(db, 'passwordResets', token));
       if (resetDocSnap.exists()) {
         const data = resetDocSnap.data();
+        if (data.used) {
+          throw new Error('This single-use reset key link has already been used or has expired. Please request a new reset key from Admin/Mod.');
+        }
         const isNotExpired = data.expiresAtMs ? data.expiresAtMs > Date.now() : (Date.now() - (data.createdAtMs || 0) < 3600000);
-        if (!data.used && isNotExpired) {
+        if (isNotExpired) {
           tokenValid = true;
           targetDocRef = resetDocSnap.ref;
         }
       }
-    } catch (e) {
+    } catch (e: any) {
+      if (e.message?.includes('already been used')) {
+        throw e;
+      }
       console.warn('Error checking passwordResets doc:', e);
     }
 
@@ -1024,52 +1049,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!qReqSnap.empty) {
           const reqDoc = qReqSnap.docs[0];
           const rData = reqDoc.data();
+          if (rData.status === 'completed' || rData.used) {
+            throw new Error('This single-use reset key link has already been used or has expired. Please request a new reset key from Admin/Mod.');
+          }
           const isNotExpired = rData.expiresAtMs ? rData.expiresAtMs > Date.now() : (Date.now() - (rData.requestedAtMs || 0) < 3600000);
           if (rData.status !== 'dismissed' && isNotExpired) {
             tokenValid = true;
             targetDocRef = reqDoc.ref;
           }
         }
-      } catch (e) {
+      } catch (e: any) {
+        if (e.message?.includes('already been used')) {
+          throw e;
+        }
         console.warn('Error checking resetRequests:', e);
       }
     }
 
-    if (!tokenValid && cleanEmail) {
-      try {
-        const qResets = query(collection(db, 'passwordResets'), where('email', '==', cleanEmail));
-        const resetsSnap = await getDocs(qResets);
-        const recentReset = resetsSnap.docs.find(d => {
-          const dt = d.data();
-          return (Date.now() - (dt.createdAtMs || 0)) < 7200000;
-        });
-        if (recentReset) {
-          tokenValid = true;
-          targetDocRef = recentReset.ref;
-        } else {
-          const qUserReq = query(collection(db, 'resetRequests'), where('email', '==', cleanEmail));
-          const qUserSnap = await getDocs(qUserReq);
-          const recentDoc = qUserSnap.docs.find(d => {
-            const dt = d.data();
-            return (Date.now() - (dt.requestedAtMs || 0)) < 7200000;
-          });
-          if (recentDoc) {
-            tokenValid = true;
-            targetDocRef = recentDoc.ref;
-          } else {
-            const usersSnap = await getDocs(query(collection(db, 'users'), where('email', '==', cleanEmail)));
-            if (!usersSnap.empty) {
-              tokenValid = true;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Fallback reset search error:', e);
-      }
-    }
-
     if (!tokenValid) {
-      throw new Error('This reset key token has expired or has already been used. Please request a new reset key.');
+      throw new Error('This single-use reset key token has expired or has already been used. Please request a new reset key from Admin/Mod.');
     }
 
     const newHash = hashPassword(newPassword);

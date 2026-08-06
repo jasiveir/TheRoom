@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, ArrowLeft, Send, CheckCircle, AlertCircle, KeyRound, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, ArrowLeft, Send, CheckCircle, AlertCircle, KeyRound, Eye, EyeOff, ShieldCheck, RefreshCw } from 'lucide-react';
 import logoImg from '../assets/TheRoom.jpg';
-import { auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { verifyPasswordResetCode } from 'firebase/auth';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 export const StandaloneResetPassword: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -45,12 +46,60 @@ export const StandaloneResetPassword: React.FC = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [codeNotice, setCodeNotice] = useState<string | null>(null);
+  const [tokenExpiredOrUsed, setTokenExpiredOrUsed] = useState(false);
 
   useEffect(() => {
     if (activeCodeOrToken) {
       setResetTokenInput(activeCodeOrToken);
     }
   }, [activeCodeOrToken]);
+
+  // Check Firestore token status on mount to detect single-use link consumption
+  useEffect(() => {
+    const targetToken = tokenParam || resetTokenInput;
+    if (!targetToken) return;
+
+    const checkTokenOnMount = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'passwordResets', targetToken));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.email && !email) {
+            setEmail(data.email);
+          }
+          if (data.used) {
+            setTokenExpiredOrUsed(true);
+            setError('Try resetting your password again: This single-use reset key link has already been used or has expired.');
+            return;
+          }
+          if (data.expiresAtMs && Date.now() > data.expiresAtMs) {
+            setTokenExpiredOrUsed(true);
+            setError('Try resetting your password again: Your request to reset your password has expired.');
+            return;
+          }
+        } else {
+          // Check resetRequests ticket
+          const qReq = query(collection(db, 'resetRequests'), where('token', '==', targetToken));
+          const qReqSnap = await getDocs(qReq);
+          if (!qReqSnap.empty) {
+            const rData = qReqSnap.docs[0].data();
+            if (rData.email && !email) {
+              setEmail(rData.email);
+            }
+            if (rData.status === 'completed' || rData.used) {
+              setTokenExpiredOrUsed(true);
+              setError('Try resetting your password again: This single-use reset key link has already been used or has expired.');
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Mount token status check notice:', e);
+      }
+    };
+
+    checkTokenOnMount();
+  }, [tokenParam, resetTokenInput]);
 
   // Attempt to extract email from oobCode if coming from Firebase reset link
   useEffect(() => {
@@ -117,7 +166,7 @@ export const StandaloneResetPassword: React.FC = () => {
       }
 
       if (err.code === 'auth/invalid-action-code') {
-        setError('This reset link has expired or was already used. Please click "Send Reset Link to Gmail" below to get a fresh link, or use a reset key.');
+        setError('This reset link has expired or was already used. Please request a new reset key from Admin/Mod.');
       } else {
         setError(err.message || 'Could not reset password. Please verify your email and try again.');
       }
@@ -298,31 +347,39 @@ export const StandaloneResetPassword: React.FC = () => {
               )}
 
               <div className="space-y-2.5 pt-1">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-3 bg-black hover:bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {loading ? (
-                    <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                  ) : (
-                    <>
-                      <KeyRound className="w-4 h-4 text-white" />
-                      <span>Update & Save New Password</span>
-                    </>
-                  )}
-                </button>
+                {tokenExpiredOrUsed ? (
+                  <Link
+                    to="/forgot-password"
+                    className="w-full py-3 bg-black hover:bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <RefreshCw className="w-4 h-4 text-white" />
+                    <span>Request New Reset Key from Admin/Mod</span>
+                  </Link>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={loading || tokenExpiredOrUsed}
+                    className="w-full py-3 bg-black hover:bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    ) : (
+                      <>
+                        <KeyRound className="w-4 h-4 text-white" />
+                        <span>Update & Save New Password</span>
+                      </>
+                    )}
+                  </button>
+                )}
 
                 <div className="text-center pt-2 border-t border-zinc-200">
-                  <button
-                    type="button"
-                    onClick={handleSendResetEmail}
-                    disabled={loading || !email}
+                  <Link
+                    to="/forgot-password"
                     className="text-xs text-zinc-600 hover:text-black underline font-semibold flex items-center justify-center gap-1.5 mx-auto cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
-                    <span>Send Reset Link to Gmail ({email || 'Enter Email Above'})</span>
-                  </button>
+                    <span>Request Reset Key from Admin / Mod</span>
+                  </Link>
                 </div>
               </div>
             </form>
