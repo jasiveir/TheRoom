@@ -9,6 +9,7 @@ interface MessageBubbleProps {
   chatId: string;
   onReply: (msg: Message) => void;
   isGroup: boolean;
+  memberDetails?: Record<string, { fullName?: string; username?: string; photoURL?: string }>;
   onImageClick?: (url: string) => void;
   currentTime?: number;
 }
@@ -20,6 +21,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   chatId,
   onReply,
   isGroup,
+  memberDetails,
   onImageClick,
   currentTime
 }) => {
@@ -34,6 +36,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const now = currentTime || Date.now();
   const isScheduled = message.scheduledFor && message.scheduledFor > now;
   const isDisappearing = message.expiresAt && !message.isDeleted;
+
+  const senderDetail = memberDetails?.[message.senderId];
+  const displayedSenderName = senderDetail?.username
+    ? `@${senderDetail.username}`
+    : (senderDetail?.fullName || message.senderName || 'Member');
+
+  const replyDetail = message.replyTo ? memberDetails?.[message.replyTo.senderId] : null;
+  const displayedReplySenderName = replyDetail?.username
+    ? `@${replyDetail.username}`
+    : (replyDetail?.fullName || message.replyTo?.senderName || 'Member');
 
   // Calculate popover direction & handle click outside
   useEffect(() => {
@@ -151,8 +163,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     <div className={`flex flex-col my-1.5 relative group ${isSelf ? 'items-end' : 'items-start'}`}>
       {/* Sender Name in group chats */}
       {isGroup && !isSelf && (
-        <span className="text-[10px] font-bold text-zinc-600 mb-0.5 ml-2 uppercase tracking-wider">
-          {message.senderName}
+        <span className="text-[10px] font-bold text-zinc-600 mb-0.5 ml-2 tracking-wider">
+          {displayedSenderName}
         </span>
       )}
 
@@ -197,7 +209,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 ? 'bg-zinc-800 border-white text-white'
                 : 'bg-[#f7f5ee] border-black text-black'
             }`}>
-              <p className="font-bold text-[10px] uppercase tracking-wider">{message.replyTo.senderName}</p>
+              <p className="font-bold text-[10px] tracking-wider">{displayedReplySenderName}</p>
               <p className="truncate line-clamp-1 opacity-90">{message.replyTo.text}</p>
             </div>
           )}

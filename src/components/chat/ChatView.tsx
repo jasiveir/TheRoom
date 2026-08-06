@@ -164,11 +164,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
         setIsOtherUserFriend(isF);
       });
 
-      getDoc(doc(db, 'users', otherUserId)).then((uDoc) => {
+      const unsubOtherUser = onSnapshot(doc(db, 'users', otherUserId), (uDoc) => {
         if (uDoc.exists()) {
           setOtherUser({ uid: uDoc.id, ...uDoc.data() } as UserProfile);
         }
       });
+      return () => unsubOtherUser();
     }
   }, [chat.id, otherUserId, userProfile?.uid]);
 
@@ -499,6 +500,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
               chatId={chat.id}
               onReply={(m) => setReplyingTo(m)}
               isGroup={chat.type === 'group'}
+              memberDetails={chat.memberDetails}
               onImageClick={(url) => setPreviewImageUrl(url)}
               currentTime={currentTime}
             />

@@ -17,7 +17,7 @@ import {
   reauthenticateWithCredential,
   confirmPasswordReset
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, onSnapshot, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { UserProfile, AccountStatus } from '../types';
 import { generateUniqueFriendCode } from '../lib/friendCode';
@@ -611,18 +611,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const processGoogleCredential = async (cred: any) => {
     if (!cred || !cred.user) return;
-    const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-    
+    const gUid = cred.user.uid;
+    const gEmail = (cred.user.email || '').toLowerCase();
+
+    // 1. Direct lookup by Google UID
+    let userDocRef = doc(db, 'users', gUid);
+    let userDoc = await getDoc(userDocRef);
+    let targetUid = gUid;
+
+    // 2. If not found by Google UID, check if an existing account exists with the same email
+    if (!userDoc.exists() && gEmail) {
+      try {
+        const qEmail = query(collection(db, 'users'), where('email', '==', gEmail));
+        const emailSnap = await getDocs(qEmail);
+        if (!emailSnap.empty) {
+          const existingDoc = emailSnap.docs[0];
+          userDocRef = existingDoc.ref;
+          userDoc = existingDoc;
+          targetUid = existingDoc.id;
+        }
+      } catch (err) {
+        console.warn('Email lookup during Google auth notice:', err);
+      }
+    }
+
     if (!userDoc.exists()) {
+      // Create new profile for a first-time user
       const friendCode = await generateUniqueFriendCode();
-      const isMainAdmin = cred.user.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
+      const isMainAdmin = gEmail === PREDEFINED_ADMIN_EMAIL.toLowerCase();
 
       const newProfile: UserProfile = {
-        uid: cred.user.uid,
+        uid: targetUid,
         fullName: cred.user.displayName || 'User',
-        username: (cred.user.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9]/g, ''),
-        email: cred.user.email?.toLowerCase() || '',
+        username: (gEmail.split('@')[0] || `user_${targetUid.slice(0, 5)}`).toLowerCase().replace(/[^a-z0-9]/g, ''),
+        email: gEmail,
         friendCode: friendCode,
+        googleConnected: true,
+        googleEmail: gEmail,
         bio: 'Hello! I am using TheRoom.',
         photoURL: cred.user.photoURL || '',
         status: 'online',
@@ -636,18 +661,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, 'users', cred.user.uid), newProfile);
+      await setDoc(userDocRef, newProfile);
       
       if (isMainAdmin) {
-        await setDoc(doc(db, 'admins', cred.user.uid), {
-          uid: cred.user.uid,
-          email: cred.user.email,
+        await setDoc(doc(db, 'admins', targetUid), {
+          uid: targetUid,
+          email: gEmail,
           createdAt: serverTimestamp()
         });
       }
-      localStorage.setItem(STORAGE_KEY, cred.user.uid);
+      localStorage.setItem(STORAGE_KEY, targetUid);
       setUserProfile(newProfile);
     } else {
+      // Existing user profile found! Keep existing friendCode and profile data permanently
       const data = userDoc.data() as UserProfile;
       if (data.accountStatus === 'blocked') {
         await firebaseSignOut(auth);
@@ -658,15 +684,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Your account has been deactivated.');
       }
 
-      const updates = {
+      // Maintain existing friendCode permanently
+      let existingFriendCode = data.friendCode;
+      if (!existingFriendCode) {
+        existingFriendCode = await generateUniqueFriendCode();
+      }
+
+      const updates: Record<string, any> = {
         status: 'online',
         lastSeen: serverTimestamp(),
         googleConnected: true,
-        googleEmail: cred.user.email || ''
+        googleEmail: gEmail || data.googleEmail || data.email,
+        friendCode: existingFriendCode,
+        updatedAt: serverTimestamp()
       };
-      await updateDoc(doc(db, 'users', cred.user.uid), updates);
-      localStorage.setItem(STORAGE_KEY, cred.user.uid);
-      setUserProfile({ ...data, googleConnected: true, googleEmail: cred.user.email || '' });
+
+      await updateDoc(userDocRef, updates);
+      localStorage.setItem(STORAGE_KEY, targetUid);
+      setUserProfile({
+        ...data,
+        ...updates,
+        friendCode: existingFriendCode,
+        googleConnected: true,
+        googleEmail: gEmail || data.googleEmail || data.email
+      });
     }
   };
 
@@ -770,29 +811,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const isAndroidWebView = typeof window !== 'undefined' && (
-        /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
-        !!(window as any).Capacitor ||
-        !!(window as any).Cordova ||
-        window.location.protocol === 'file:'
-      );
+      let gEmail = '';
 
-      if (isAndroidWebView) {
-        throw new Error('Connecting Google account via browser popup is restricted inside Android app WebViews.');
+      // 1. Check if native Capacitor GoogleAuth plugin is available
+      let googleAuthPlugin: any = typeof window !== 'undefined' ? (window as any).Capacitor?.Plugins?.GoogleAuth : null;
+      if (!googleAuthPlugin && typeof window !== 'undefined') {
+        try {
+          const pluginPkg = '@codetrix-studio/capacitor-google-auth';
+          const mod = await import(/* @vite-ignore */ pluginPkg).catch(() => null);
+          if (mod?.GoogleAuth) {
+            googleAuthPlugin = mod.GoogleAuth;
+          }
+        } catch (e) {}
       }
 
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      if (googleAuthPlugin) {
+        try {
+          await googleAuthPlugin.initialize?.({
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          }).catch(() => {});
 
-      const popupPromise = signInWithPopup(auth, provider);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Google connection request timed out.')), 25000);
-      });
+          const googleUser = await googleAuthPlugin.signIn();
+          gEmail = googleUser?.email || googleUser?.user?.email || '';
 
-      const res = await Promise.race([popupPromise, timeoutPromise]) as any;
+          if (!gEmail && (googleUser?.authentication?.idToken || googleUser?.idToken)) {
+            const credential = GoogleAuthProvider.credential(googleUser.authentication?.idToken || googleUser.idToken);
+            const res = await signInWithCredential(auth, credential);
+            gEmail = res?.user?.email || '';
+          }
+        } catch (nativeErr: any) {
+          console.warn('Native Google Auth link notice:', nativeErr);
+          if (nativeErr?.message?.includes('cancel') || nativeErr?.code === '12501' || nativeErr?.code === '10') {
+            throw new Error('Account selection was cancelled.');
+          }
+        }
+      }
 
-      if (res && res.user) {
-        const gEmail = res.user.email || '';
+      // 2. If native auth plugin is not available, try browser popup
+      if (!gEmail) {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        const popupPromise = signInWithPopup(auth, provider);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Google connection request timed out.')), 25000);
+        });
+
+        const res = await Promise.race([popupPromise, timeoutPromise]) as any;
+        if (res && res.user) {
+          gEmail = res.user.email || '';
+        }
+      }
+
+      if (gEmail) {
         const updates: Record<string, any> = {
           googleConnected: true,
           googleEmail: gEmail,
@@ -805,6 +877,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           googleConnected: true,
           googleEmail: gEmail
         } : prev);
+      } else {
+        throw new Error('Could not retrieve Google Account email.');
       }
     } catch (err: any) {
       console.error('Error connecting Google Account:', err);
@@ -1143,6 +1217,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       ...updates,
       updatedAt: serverTimestamp()
     });
+
+    // Update local state immediately so current session updates without waiting
+    setUserProfile((prev) => (prev ? { ...prev, ...updates } : prev));
+
+    // Sync memberDetails across all active chats where this user is a member
+    try {
+      const newFullName = updates.fullName || (updates as any).displayName || userProfile?.fullName || 'User';
+      const newUsername = updates.username || userProfile?.username || 'user';
+      const newPhotoURL = updates.photoURL !== undefined ? updates.photoURL : (userProfile?.photoURL || '');
+
+      const chatsQuery = query(collection(db, 'chats'), where('members', 'array-contains', activeUid));
+      const chatsSnap = await getDocs(chatsQuery);
+
+      if (!chatsSnap.empty) {
+        const batch = writeBatch(db);
+        chatsSnap.docs.forEach((chatDoc) => {
+          const cData = chatDoc.data();
+          const existingDetail = cData.memberDetails?.[activeUid] || {};
+          const updatedDetail = {
+            ...existingDetail,
+            uid: activeUid,
+            fullName: newFullName,
+            username: newUsername,
+            photoURL: newPhotoURL
+          };
+          batch.update(chatDoc.ref, {
+            [`memberDetails.${activeUid}`]: updatedDetail
+          });
+        });
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn('Syncing memberDetails across chats error:', err);
+    }
   };
 
   const changePassword = async (newPassword: string) => {
