@@ -7,29 +7,55 @@ import { playNotificationSound, playBellSound } from '../lib/audio';
 
 export const triggerOSNotification = (title: string, body: string) => {
   try {
-    // 1. Capacitor LocalNotifications (APK native mode)
+    // 1. Capacitor LocalNotifications (Android Native System Notification Drawer / APK)
     if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
-      (window as any).Capacitor.Plugins.LocalNotifications.schedule({
-        notifications: [{
-          title: title || 'TheRoom Signal',
-          body: body || 'New encrypted message received',
-          id: Math.floor(Math.random() * 1000000),
-          schedule: { at: new Date(Date.now() + 100) },
-          sound: 'glitch_alert.wav',
-          smallIcon: 'ic_stat_icon_config_sample'
-        }]
-      }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
+      const LocalNotifications = (window as any).Capacitor.Plugins.LocalNotifications;
+      LocalNotifications.requestPermissions().then(() => {
+        LocalNotifications.schedule({
+          notifications: [{
+            title: title || 'TheRoom Signal',
+            body: body || 'New encrypted message received',
+            id: Math.floor(Math.random() * 1000000),
+            schedule: { at: new Date(Date.now() + 100) },
+            sound: 'glitch_alert.wav',
+            smallIcon: 'ic_stat_icon_config_sample',
+            actionTypeId: 'OPEN_APP'
+          }]
+        }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
+      }).catch(() => {});
     }
 
-    // 2. Standard Web Notification API (Browser / PWA)
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(title || 'TheRoom', {
-        body: body || 'New message received',
-        icon: '/logos/icon-192.png',
-        badge: '/logos/icon-192.png',
-        tag: 'theroom-notif-' + Date.now(),
-        silent: false
-      });
+    // 2. Standard Web Notification API (Browser / OS System Notifications)
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        const notif = new Notification(title || 'TheRoom', {
+          body: body || 'New message received',
+          icon: '/logos/icon-192.png',
+          badge: '/logos/icon-192.png',
+          tag: 'theroom-notif-' + Date.now(),
+          silent: false
+        });
+        notif.onclick = () => {
+          window.focus();
+          notif.close();
+        };
+      } else if (Notification.permission === 'default') {
+        Notification.requestPermission().then((perm) => {
+          if (perm === 'granted') {
+            const notif = new Notification(title || 'TheRoom', {
+              body: body || 'New message received',
+              icon: '/logos/icon-192.png',
+              badge: '/logos/icon-192.png',
+              tag: 'theroom-notif-' + Date.now(),
+              silent: false
+            });
+            notif.onclick = () => {
+              window.focus();
+              notif.close();
+            };
+          }
+        }).catch(() => {});
+      }
     }
   } catch (err) {
     console.warn('Notice in triggerOSNotification:', err);

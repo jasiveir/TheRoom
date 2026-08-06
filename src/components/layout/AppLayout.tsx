@@ -17,7 +17,6 @@ import { GroupDetailsModal } from '../chat/GroupDetailsModal';
 import { UserQRCodeModal } from '../qr/UserQRCodeModal';
 import { DownloadApkModal } from '../download/DownloadApkModal';
 import { ApkPermissionModal } from '../notifications/ApkPermissionModal';
-import { AndroidPushNotificationBanner } from '../notifications/AndroidPushNotificationBanner';
 import { AndroidLockOverlay } from './AndroidLockOverlay';
 import { ChatsList } from '../chat/ChatsList';
 import { ChatView } from '../chat/ChatView';
@@ -329,12 +328,6 @@ export const AppLayout: React.FC = () => {
       <ApkPermissionModal
         isOpen={showApkPermissions}
         onClose={() => setShowApkPermissions(false)}
-      />
-
-      <AndroidPushNotificationBanner
-        onNavigateToChat={(chatId) => {
-          setActiveTab('chats');
-        }}
       />
     </div>
   );

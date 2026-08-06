@@ -299,16 +299,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {showOptions && !message.isDeleted && (
           <div
             ref={popoverRef}
-            className={`absolute w-56 bg-white rounded-2xl shadow-xl border border-[#e2dfd2] py-2 z-50 text-xs text-zinc-800 animate-in fade-in zoom-in-95 ${
+            className={`absolute w-72 sm:w-80 max-w-[85vw] bg-white rounded-2xl shadow-xl border border-[#e2dfd2] p-2.5 z-50 text-xs text-zinc-800 animate-in fade-in zoom-in-95 ${
               popoverPosition === 'down' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
             } ${isSelf ? 'right-0' : 'left-0'}`}
           >
             {/* Quick Emoji Reaction Toolbar */}
-            <div className="px-2 pb-2 mb-1 border-b border-zinc-100">
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 px-1 flex items-center gap-1">
+            <div className="pb-2 mb-2 border-b border-zinc-100">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 px-1 flex items-center gap-1">
                 <Smile className="w-3 h-3 text-zinc-400" /> React to message
               </p>
-              <div className="flex items-center justify-between gap-0.5 px-0.5">
+              <div className="grid grid-cols-8 gap-1 items-center justify-items-center bg-zinc-50/80 p-1 rounded-xl border border-zinc-100">
                 {QUICK_EMOJIS.map((emoji) => {
                   const hasReacted = userProfile?.uid && message.reactions?.[emoji]?.includes(userProfile.uid);
                   return (
@@ -316,8 +316,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                       key={emoji}
                       type="button"
                       onClick={() => handleReact(emoji)}
-                      className={`p-1.5 rounded-lg text-base hover:bg-zinc-100 transition-transform active:scale-125 cursor-pointer ${
-                        hasReacted ? 'bg-zinc-200 ring-2 ring-black scale-110' : ''
+                      className={`w-7 h-7 flex items-center justify-center rounded-lg text-sm sm:text-base hover:bg-zinc-200/80 transition-all active:scale-125 cursor-pointer ${
+                        hasReacted ? 'bg-zinc-200 ring-2 ring-black scale-105' : ''
                       }`}
                       title={`React with ${emoji}`}
                     >
