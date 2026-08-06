@@ -49,45 +49,17 @@ export const ChatsList: React.FC<ChatsListProps> = ({
         return tB - tA;
       });
 
-      // Filter & Prune duplicate or non-friend private chats
+      // Deduplicate private chats in memory safely
       const verifiedList: Chat[] = [];
       const seenPrivateUserIds = new Set<string>();
 
       for (const chat of rawList) {
         if (chat.type === 'private') {
-          const otherUid = chat.members.find((m) => m !== userProfile.uid);
-          if (!otherUid) {
-            deleteChatById(chat.id).catch(() => {});
-            continue;
-          }
+          const otherUid = chat.members?.find((m) => m !== userProfile.uid);
+          if (!otherUid) continue;
 
-          // Check if already seen duplicate chat for this friend
-          if (seenPrivateUserIds.has(otherUid)) {
-            // Delete duplicate chat document from Firestore
-            deleteChatById(chat.id).catch(() => {});
-            continue;
-          }
-
-          // Check if the other user profile exists in Firestore
-          const otherUserSnap = await getDoc(doc(db, 'users', otherUid));
-          if (!otherUserSnap.exists()) {
-            deleteChatById(chat.id).catch(() => {});
-            if (chat.id === activeChatId) {
-              onSelectChat(null);
-            }
-            continue;
-          }
-
-          // Check if they are actually friends
-          const isFriend = await checkIsFriend(userProfile.uid, otherUid);
-          if (!isFriend) {
-            // Delete non-friend private chat from Firestore
-            deleteChatById(chat.id).catch(() => {});
-            if (chat.id === activeChatId) {
-              onSelectChat(null);
-            }
-            continue;
-          }
+          // Deduplicate multiple private chat documents with same friend
+          if (seenPrivateUserIds.has(otherUid)) continue;
 
           seenPrivateUserIds.add(otherUid);
           verifiedList.push(chat);
@@ -97,9 +69,6 @@ export const ChatsList: React.FC<ChatsListProps> = ({
       }
 
       setChats(verifiedList);
-      if (activeChatId && !verifiedList.some((c) => c.id === activeChatId)) {
-        onSelectChat(null);
-      }
       setLoading(false);
     }, (err) => {
       console.error('Error fetching chats:', err);

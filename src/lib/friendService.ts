@@ -245,9 +245,53 @@ export async function declineFriendRequest(requestId: string): Promise<void> {
 
 export async function checkIsFriend(uid1: string, uid2: string): Promise<boolean> {
   if (!uid1 || !uid2) return false;
+  if (uid1 === uid2) return true;
+
   const friendshipId = [uid1, uid2].sort().join('_');
-  const snap = await getDoc(doc(db, 'friendships', friendshipId));
-  return snap.exists();
+  try {
+    const snap = await getDoc(doc(db, 'friendships', friendshipId));
+    if (snap.exists()) return true;
+
+    // Fallback: Check if there is an accepted friend request
+    const reqsRef = collection(db, 'friendRequests');
+    const q1 = query(reqsRef, where('senderId', '==', uid1));
+    const snap1 = await getDocs(q1);
+    const hasAccepted1 = snap1.docs.some((d) => {
+      const data = d.data();
+      return data.receiverId === uid2 && data.status === 'accepted';
+    });
+    if (hasAccepted1) {
+      await setDoc(doc(db, 'friendships', friendshipId), {
+        id: friendshipId,
+        users: [uid1, uid2],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+      return true;
+    }
+
+    const q2 = query(reqsRef, where('senderId', '==', uid2));
+    const snap2 = await getDocs(q2);
+    const hasAccepted2 = snap2.docs.some((d) => {
+      const data = d.data();
+      return data.receiverId === uid1 && data.status === 'accepted';
+    });
+    if (hasAccepted2) {
+      await setDoc(doc(db, 'friendships', friendshipId), {
+        id: friendshipId,
+        users: [uid1, uid2],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true }).catch(() => {});
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    console.warn('Notice checking friendship status:', err);
+    // On network/query errors, default to true so we don't accidentally wipe chats
+    return true;
+  }
 }
 
 /**

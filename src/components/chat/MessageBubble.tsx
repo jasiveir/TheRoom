@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Message } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { Check, CheckCheck, Trash2, Reply, MoreVertical, Timer, Clock, Smile } from 'lucide-react';
@@ -370,7 +370,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       {/* Active Reactions Pills below message */}
       {message.reactions && Object.keys(message.reactions).length > 0 && !message.isDeleted && (
         <div className={`flex flex-wrap items-center gap-1 mt-1 z-10 ${isSelf ? 'justify-end' : 'justify-start'}`}>
-          {Object.entries(message.reactions).map(([emoji, uids]) => {
+          {(Object.entries(message.reactions) as [string, string[]][]).map(([emoji, uids]) => {
             if (!uids || uids.length === 0) return null;
             const hasReacted = userProfile?.uid ? uids.includes(userProfile.uid) : false;
             return (

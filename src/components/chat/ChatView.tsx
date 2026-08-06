@@ -54,7 +54,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onOpenUnfriendModal
 }) => {
   const { userProfile } = useAuth();
-  const { startVoiceCall } = useVoiceCall();
+  const { startVoiceCall, joinGroupVoiceCall } = useVoiceCall();
   const [messages, setMessages] = useState<Message[]>([]);
   const [textInput, setTextInput] = useState('');
   const [mediaUrlInput, setMediaUrlInput] = useState('');
@@ -66,6 +66,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [isOtherUserFriend, setIsOtherUserFriend] = useState(true);
   const [otherUser, setOtherUser] = useState<UserProfile | null>(null);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+  const [groupCallCount, setGroupCallCount] = useState<number>(0);
+
+  // Listen for live active participants in group voice room
+  useEffect(() => {
+    if (chat.type !== 'group' || !chat.id) return;
+    const colRef = collection(db, 'groupCalls', chat.id, 'participants');
+    const unsub = onSnapshot(colRef, (snap) => {
+      setGroupCallCount(snap.size);
+    }, () => setGroupCallCount(0));
+    return () => unsub();
+  }, [chat.id, chat.type]);
 
   // Disappearing & Scheduled Messages States
   const [disappearingDuration, setDisappearingDuration] = useState<number>(0); // 0 = off, else seconds
@@ -151,11 +162,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
     if (chat.type === 'private' && otherUserId && userProfile?.uid) {
       checkIsFriend(userProfile.uid, otherUserId).then((isF) => {
         setIsOtherUserFriend(isF);
-        if (!isF) {
-          // If no longer friends, delete chat and clear active selection
-          deleteChatById(chat.id).catch(() => {});
-          if (onBackMobile) onBackMobile();
-        }
       });
 
       getDoc(doc(db, 'users', otherUserId)).then((uDoc) => {
@@ -389,6 +395,17 @@ export const ChatView: React.FC<ChatViewProps> = ({
             </button>
           )}
 
+          {chat.type === 'group' && (
+            <button
+              onClick={() => joinGroupVoiceCall(chat.id, chat.name || 'Group Chat', chat.photoURL, chat.members)}
+              className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer shrink-0"
+              title="Join or Start Group Voice Call"
+            >
+              <Phone className="w-4 h-4 sm:w-3.5 sm:h-3.5 fill-current shrink-0" />
+              <span className="hidden sm:inline">Group Call</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowSearch(!showSearch)}
             className={`p-1.5 sm:p-2 rounded-lg text-zinc-700 border border-[#e2dfd2] hover:bg-[#f7f5ee] transition-all cursor-pointer shrink-0 ${
@@ -420,6 +437,28 @@ export const ChatView: React.FC<ChatViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Active Group Call Banner */}
+      {chat.type === 'group' && groupCallCount > 0 && (
+        <div className="bg-emerald-950 text-white border-b border-emerald-800 px-4 py-2 flex items-center justify-between z-20 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <p className="text-xs font-bold tracking-wide">
+              Live Group Call ({groupCallCount} participant{groupCallCount > 1 ? 's' : ''} on call)
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => joinGroupVoiceCall(chat.id, chat.name || 'Group Chat', chat.photoURL, chat.members)}
+            className="px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs shadow-xs transition-all cursor-pointer active:scale-95"
+          >
+            Join Call
+          </button>
+        </div>
+      )}
 
       {/* In-chat Search Input Bar */}
       {showSearch && (
