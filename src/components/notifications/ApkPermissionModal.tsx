@@ -51,17 +51,48 @@ export const ApkPermissionModal: React.FC<ApkPermissionModalProps> = ({ isOpen, 
   };
 
   const handleRequestNotifications = async () => {
+    // 1. Request Capacitor Native Android Local Notifications Permission & Create Channel
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+      try {
+        const LN = (window as any).Capacitor.Plugins.LocalNotifications;
+        await LN.requestPermissions();
+        if (LN.createChannel) {
+          await LN.createChannel({
+            id: 'theroom_messages',
+            name: 'TheRoom Messages',
+            description: 'Encrypted message alerts',
+            importance: 5,
+            visibility: 1,
+            vibration: true,
+            sound: 'glitch_alert.wav'
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('Capacitor LocalNotifications permission error:', e);
+      }
+    }
+
+    // 2. Request Capacitor Push Notifications Permission if available
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.PushNotifications) {
+      try {
+        await (window as any).Capacitor.Plugins.PushNotifications.requestPermissions();
+      } catch (e) {
+        console.warn('Capacitor PushNotifications permission error:', e);
+      }
+    }
+
+    // 3. Request Standard Browser / Android WebView Notification Permission
     if (typeof window !== 'undefined' && 'Notification' in window) {
       try {
         const res = await Notification.requestPermission();
         if (res === 'granted') {
           setNotificationGranted(true);
-          localStorage.setItem('apk_notification_permission_granted', 'true');
         }
       } catch (e) {
         console.warn('Notification permission error:', e);
       }
     }
+
     setNotificationGranted(true);
     localStorage.setItem('apk_notification_permission_granted', 'true');
   };

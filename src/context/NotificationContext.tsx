@@ -10,7 +10,43 @@ export const triggerOSNotification = (title: string, body: string) => {
     const cleanTitle = title || 'TheRoom Signal';
     const cleanBody = body || 'New encrypted message received';
 
-    // 1. Service Worker Notification (Android OS Notification Drawer & OS Desktop Notifications)
+    // 1. Capacitor LocalNotifications (Android APK Native System Drawer)
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+      const LocalNotifications = (window as any).Capacitor.Plugins.LocalNotifications;
+      if (LocalNotifications.createChannel) {
+        LocalNotifications.createChannel({
+          id: 'theroom_messages',
+          name: 'TheRoom Messages',
+          description: 'Encrypted message alerts',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          sound: 'glitch_alert.wav'
+        }).catch(() => {});
+      }
+
+      LocalNotifications.checkPermissions().then((res: any) => {
+        if (res?.display !== 'granted') {
+          return LocalNotifications.requestPermissions();
+        }
+        return res;
+      }).then(() => {
+        LocalNotifications.schedule({
+          notifications: [{
+            title: cleanTitle,
+            body: cleanBody,
+            id: Math.floor(Math.random() * 1000000),
+            schedule: { at: new Date(Date.now() + 50) },
+            channelId: 'theroom_messages',
+            sound: 'glitch_alert.wav',
+            smallIcon: 'ic_stat_icon_config_sample',
+            actionTypeId: 'OPEN_APP'
+          }]
+        }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
+      }).catch(() => {});
+    }
+
+    // 2. Service Worker Notification (Android OS Notification Drawer & OS Desktop Notifications)
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.ready.then((reg) => {
         if (reg && typeof reg.showNotification === 'function') {
@@ -37,29 +73,6 @@ export const triggerOSNotification = (title: string, body: string) => {
           tag: 'theroom-msg-' + Date.now()
         });
       }
-    }
-
-    // 2. Capacitor LocalNotifications (Android APK Native System Drawer)
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
-      const LocalNotifications = (window as any).Capacitor.Plugins.LocalNotifications;
-      LocalNotifications.checkPermissions().then((res: any) => {
-        if (res?.display !== 'granted') {
-          return LocalNotifications.requestPermissions();
-        }
-        return res;
-      }).then(() => {
-        LocalNotifications.schedule({
-          notifications: [{
-            title: cleanTitle,
-            body: cleanBody,
-            id: Math.floor(Math.random() * 1000000),
-            schedule: { at: new Date(Date.now() + 50) },
-            sound: 'glitch_alert.wav',
-            smallIcon: 'ic_stat_icon_config_sample',
-            actionTypeId: 'OPEN_APP'
-          }]
-        }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
-      }).catch(() => {});
     }
 
     // 3. Fallback Standard Web Notification API
@@ -135,7 +148,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return () => clearInterval(interval);
   }, []);
 
-  // Register ServiceWorker for Android OS System Drawer & Web Notifications
+  // Register ServiceWorker for Android OS System Drawer & Web Notifications + Capacitor Native Channels
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').then((reg) => {
@@ -145,8 +158,33 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
     }
 
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
+    if (typeof window !== 'undefined') {
+      // 1. Capacitor Native Android Permissions & Channel Setup
+      if ((window as any).Capacitor?.Plugins?.LocalNotifications) {
+        const LN = (window as any).Capacitor.Plugins.LocalNotifications;
+        LN.checkPermissions().then((res: any) => {
+          if (res?.display !== 'granted') {
+            LN.requestPermissions().catch(() => {});
+          }
+        }).catch(() => {
+          LN.requestPermissions().catch(() => {});
+        });
+
+        if (LN.createChannel) {
+          LN.createChannel({
+            id: 'theroom_messages',
+            name: 'TheRoom Messages',
+            description: 'Encrypted message alerts',
+            importance: 5,
+            visibility: 1,
+            vibration: true,
+            sound: 'glitch_alert.wav'
+          }).catch(() => {});
+        }
+      }
+
+      // 2. Browser & Android WebView Notification Permission Request on Touch
+      if ('Notification' in window && Notification.permission === 'default') {
         const askPermission = () => {
           Notification.requestPermission().catch(() => {});
           window.removeEventListener('click', askPermission);
