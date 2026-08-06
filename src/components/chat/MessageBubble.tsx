@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Message } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { Check, CheckCheck, Trash2, Reply, MoreVertical, Timer, Clock } from 'lucide-react';
-import { deleteMessageForEveryone, deleteMessageForSelf } from '../../lib/chatService';
+import { Check, CheckCheck, Trash2, Reply, MoreVertical, Timer, Clock, Smile } from 'lucide-react';
+import { deleteMessageForEveryone, deleteMessageForSelf, toggleReactionOnMessage } from '../../lib/chatService';
 
 interface MessageBubbleProps {
   message: Message;
@@ -12,6 +12,8 @@ interface MessageBubbleProps {
   onImageClick?: (url: string) => void;
   currentTime?: number;
 }
+
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥', '🙏', '🎉'];
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
@@ -23,11 +25,77 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 }) => {
   const { userProfile } = useAuth();
   const [showOptions, setShowOptions] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState<'up' | 'down'>('up');
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const bubbleRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const isSelf = message.senderId === userProfile?.uid;
   const now = currentTime || Date.now();
   const isScheduled = message.scheduledFor && message.scheduledFor > now;
   const isDisappearing = message.expiresAt && !message.isDeleted;
+
+  // Calculate popover direction & handle click outside
+  useEffect(() => {
+    if (showOptions && bubbleRef.current) {
+      const rect = bubbleRef.current.getBoundingClientRect();
+      if (rect.top < 240) {
+        setPopoverPosition('down');
+      } else {
+        setPopoverPosition('up');
+      }
+    }
+  }, [showOptions]);
+
+  useEffect(() => {
+    if (!showOptions) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        bubbleRef.current &&
+        !bubbleRef.current.contains(e.target as Node)
+      ) {
+        setShowOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [showOptions]);
+
+  const handleTouchStart = () => {
+    if (message.isDeleted) return;
+    longPressTimerRef.current = setTimeout(() => {
+      setShowOptions(true);
+      if (navigator.vibrate) {
+        try { navigator.vibrate(45); } catch (e) {}
+      }
+    }, 400);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleTouchMove = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const handleReact = async (emoji: string) => {
+    if (!userProfile?.uid || message.isDeleted) return;
+    setShowOptions(false);
+    await toggleReactionOnMessage(chatId, message.id, userProfile.uid, emoji);
+  };
 
   const getDeletedExpiresAt = (msg: Message): number => {
     if (msg.deletedExpiresAt) return msg.deletedExpiresAt;
@@ -88,58 +156,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         </span>
       )}
 
-      <div className="flex items-center gap-1 max-w-[85%] sm:max-w-[75%]">
-        {/* Actions Dropdown Button for Outgoing */}
+      <div ref={bubbleRef} className="flex items-center gap-1 max-w-[85%] sm:max-w-[75%] relative">
+        {/* Actions Dropdown Button for Outgoing (Left of bubble) */}
         {isSelf && !message.isDeleted && (
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               type="button"
               onClick={() => setShowOptions(!showOptions)}
               className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-black transition-opacity cursor-pointer"
+              title="Message options & reactions"
             >
               <MoreVertical className="w-3.5 h-3.5" />
             </button>
-
-            {showOptions && (
-              <div className="absolute right-0 bottom-full mb-1 w-44 bg-white rounded-xl shadow-lg border border-[#e2dfd2] py-1 z-30 text-xs text-zinc-800">
-                <button
-                  onClick={() => {
-                    onReply(message);
-                    setShowOptions(false);
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#f7f5ee] flex items-center gap-2 text-black font-medium cursor-pointer"
-                >
-                  <Reply className="w-3.5 h-3.5" />
-                  Reply
-                </button>
-                <button
-                  onClick={() => {
-                    handleDeleteSelf();
-                    setShowOptions(false);
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#f7f5ee] flex items-center gap-2 text-zinc-700 font-medium cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
-                  Delete for Me
-                </button>
-                <button
-                  onClick={() => {
-                    handleDeleteEveryone();
-                    setShowOptions(false);
-                  }}
-                  className="w-full px-3 py-1.5 text-left hover:bg-rose-50 flex items-center gap-2 text-rose-600 font-medium cursor-pointer"
-                >
-                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                  Delete Everyone
-                </button>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Message Content Bubble */}
+        {/* Message Content Bubble with Long Press support */}
         <div
-          className={`p-3 rounded-2xl text-xs relative transition-all border ${
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onTouchMove={handleTouchMove}
+          onContextMenu={(e) => {
+            if (!message.isDeleted) {
+              e.preventDefault();
+              setShowOptions(true);
+            }
+          }}
+          className={`p-3 rounded-2xl text-xs relative transition-all border select-none ${
             message.isDeleted
               ? 'bg-[#f7f5ee] text-zinc-400 italic border-[#e2dfd2]'
               : isSelf
@@ -181,7 +224,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
 
           {/* Message Text */}
-          <p className="whitespace-pre-wrap break-words leading-relaxed font-normal text-[13px]">
+          <p className="whitespace-pre-wrap break-words leading-relaxed font-normal text-[13px] select-text">
             {message.text}
           </p>
 
@@ -230,18 +273,127 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         </div>
 
+        {/* Actions Dropdown Button for Incoming (Right of bubble) */}
         {!isSelf && !message.isDeleted && (
-          <button
-            type="button"
-            onClick={() => onReply(message)}
-            className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-black transition-opacity cursor-pointer"
-            title="Reply"
+          <div className="relative shrink-0 flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => onReply(message)}
+              className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-black transition-opacity cursor-pointer"
+              title="Reply"
+            >
+              <Reply className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOptions(!showOptions)}
+              className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-black transition-opacity cursor-pointer"
+              title="Message options & reactions"
+            >
+              <MoreVertical className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Popover Menu with Quick Reaction Bar & Options */}
+        {showOptions && !message.isDeleted && (
+          <div
+            ref={popoverRef}
+            className={`absolute w-56 bg-white rounded-2xl shadow-xl border border-[#e2dfd2] py-2 z-50 text-xs text-zinc-800 animate-in fade-in zoom-in-95 ${
+              popoverPosition === 'down' ? 'top-full mt-1.5' : 'bottom-full mb-1.5'
+            } ${isSelf ? 'right-0' : 'left-0'}`}
           >
-            <Reply className="w-3.5 h-3.5" />
-          </button>
+            {/* Quick Emoji Reaction Toolbar */}
+            <div className="px-2 pb-2 mb-1 border-b border-zinc-100">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1 px-1 flex items-center gap-1">
+                <Smile className="w-3 h-3 text-zinc-400" /> React to message
+              </p>
+              <div className="flex items-center justify-between gap-0.5 px-0.5">
+                {QUICK_EMOJIS.map((emoji) => {
+                  const hasReacted = userProfile?.uid && message.reactions?.[emoji]?.includes(userProfile.uid);
+                  return (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => handleReact(emoji)}
+                      className={`p-1.5 rounded-lg text-base hover:bg-zinc-100 transition-transform active:scale-125 cursor-pointer ${
+                        hasReacted ? 'bg-zinc-200 ring-2 ring-black scale-110' : ''
+                      }`}
+                      title={`React with ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Menu Options */}
+            <button
+              onClick={() => {
+                onReply(message);
+                setShowOptions(false);
+              }}
+              className="w-full px-3 py-1.5 text-left hover:bg-[#f7f5ee] flex items-center gap-2 text-black font-medium cursor-pointer"
+            >
+              <Reply className="w-3.5 h-3.5" />
+              Reply
+            </button>
+
+            <button
+              onClick={() => {
+                handleDeleteSelf();
+                setShowOptions(false);
+              }}
+              className="w-full px-3 py-1.5 text-left hover:bg-[#f7f5ee] flex items-center gap-2 text-zinc-700 font-medium cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
+              Delete for Me
+            </button>
+
+            {isSelf && (
+              <button
+                onClick={() => {
+                  handleDeleteEveryone();
+                  setShowOptions(false);
+                }}
+                className="w-full px-3 py-1.5 text-left hover:bg-rose-50 flex items-center gap-2 text-rose-600 font-medium cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                Delete Everyone
+              </button>
+            )}
+          </div>
         )}
       </div>
+
+      {/* Active Reactions Pills below message */}
+      {message.reactions && Object.keys(message.reactions).length > 0 && !message.isDeleted && (
+        <div className={`flex flex-wrap items-center gap-1 mt-1 z-10 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+          {Object.entries(message.reactions).map(([emoji, uids]) => {
+            if (!uids || uids.length === 0) return null;
+            const hasReacted = userProfile?.uid ? uids.includes(userProfile.uid) : false;
+            return (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => handleReact(emoji)}
+                className={`px-2 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1 border transition-all cursor-pointer shadow-xs ${
+                  hasReacted
+                    ? 'bg-black text-white border-black font-bold scale-105'
+                    : 'bg-white text-zinc-800 border-[#e2dfd2] hover:bg-[#f7f5ee]'
+                }`}
+                title={`${uids.length} reaction${uids.length > 1 ? 's' : ''}`}
+              >
+                <span>{emoji}</span>
+                <span className="text-[10px]">{uids.length}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
+
 

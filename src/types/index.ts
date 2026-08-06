@@ -99,6 +99,7 @@ export interface Message {
   disappearingDuration?: number; // In seconds (e.g. 10, 30, 60, 300, 3600, 86400)
   expiresAt?: number; // Timestamp in ms when message should disappear
   scheduledFor?: number; // Timestamp in ms when message should be delivered/visible
+  reactions?: Record<string, string[]>; // emoji -> array of user UIDs
 }
 
 export interface AppNotification {

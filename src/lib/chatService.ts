@@ -323,6 +323,38 @@ export async function togglePinMessage(chatId: string, messageId: string, isPinn
   }
 }
 
+export async function toggleReactionOnMessage(chatId: string, messageId: string, userId: string, emoji: string): Promise<void> {
+  try {
+    const msgRef = doc(db, 'chats', chatId, 'messages', messageId);
+    const msgSnap = await getDoc(msgRef);
+    if (!msgSnap.exists()) return;
+
+    const data = msgSnap.data();
+    const currentReactions: Record<string, string[]> = data.reactions || {};
+    const uidsForEmoji = currentReactions[emoji] || [];
+
+    let updatedUids: string[];
+    if (uidsForEmoji.includes(userId)) {
+      updatedUids = uidsForEmoji.filter(id => id !== userId);
+    } else {
+      updatedUids = [...uidsForEmoji, userId];
+    }
+
+    const updatedReactions = { ...currentReactions };
+    if (updatedUids.length > 0) {
+      updatedReactions[emoji] = updatedUids;
+    } else {
+      delete updatedReactions[emoji];
+    }
+
+    await updateDoc(msgRef, {
+      reactions: updatedReactions
+    });
+  } catch (e) {
+    console.warn('Error toggling reaction on message:', e);
+  }
+}
+
 export async function leaveGroupChat(chatId: string, userId: string): Promise<void> {
   try {
     const chatRef = doc(db, 'chats', chatId);
