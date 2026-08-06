@@ -7,16 +7,53 @@ import { playNotificationSound, playBellSound } from '../lib/audio';
 
 export const triggerOSNotification = (title: string, body: string) => {
   try {
-    // 1. Capacitor LocalNotifications (Android Native System Notification Drawer / APK)
+    const cleanTitle = title || 'TheRoom Signal';
+    const cleanBody = body || 'New encrypted message received';
+
+    // 1. Service Worker Notification (Android OS Notification Drawer & OS Desktop Notifications)
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          reg.showNotification(cleanTitle, {
+            body: cleanBody,
+            icon: '/logos/icon-192.png',
+            badge: '/logos/icon-192.png',
+            vibrate: [200, 100, 200],
+            tag: 'theroom-msg-' + Date.now(),
+            renotify: true,
+            data: { url: '/' }
+          } as any).catch((err) => console.warn('SW showNotification error:', err));
+        }
+      }).catch(() => {});
+
+      // Backup: PostMessage to Service Worker controller
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title: cleanTitle,
+          body: cleanBody,
+          icon: '/logos/icon-192.png',
+          badge: '/logos/icon-192.png',
+          tag: 'theroom-msg-' + Date.now()
+        });
+      }
+    }
+
+    // 2. Capacitor LocalNotifications (Android APK Native System Drawer)
     if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
       const LocalNotifications = (window as any).Capacitor.Plugins.LocalNotifications;
-      LocalNotifications.requestPermissions().then(() => {
+      LocalNotifications.checkPermissions().then((res: any) => {
+        if (res?.display !== 'granted') {
+          return LocalNotifications.requestPermissions();
+        }
+        return res;
+      }).then(() => {
         LocalNotifications.schedule({
           notifications: [{
-            title: title || 'TheRoom Signal',
-            body: body || 'New encrypted message received',
+            title: cleanTitle,
+            body: cleanBody,
             id: Math.floor(Math.random() * 1000000),
-            schedule: { at: new Date(Date.now() + 100) },
+            schedule: { at: new Date(Date.now() + 50) },
             sound: 'glitch_alert.wav',
             smallIcon: 'ic_stat_icon_config_sample',
             actionTypeId: 'OPEN_APP'
@@ -25,11 +62,11 @@ export const triggerOSNotification = (title: string, body: string) => {
       }).catch(() => {});
     }
 
-    // 2. Standard Web Notification API (Browser / OS System Notifications)
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        const notif = new Notification(title || 'TheRoom', {
-          body: body || 'New message received',
+    // 3. Fallback Standard Web Notification API
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const notif = new Notification(cleanTitle, {
+          body: cleanBody,
           icon: '/logos/icon-192.png',
           badge: '/logos/icon-192.png',
           tag: 'theroom-notif-' + Date.now(),
@@ -39,22 +76,8 @@ export const triggerOSNotification = (title: string, body: string) => {
           window.focus();
           notif.close();
         };
-      } else if (Notification.permission === 'default') {
-        Notification.requestPermission().then((perm) => {
-          if (perm === 'granted') {
-            const notif = new Notification(title || 'TheRoom', {
-              body: body || 'New message received',
-              icon: '/logos/icon-192.png',
-              badge: '/logos/icon-192.png',
-              tag: 'theroom-notif-' + Date.now(),
-              silent: false
-            });
-            notif.onclick = () => {
-              window.focus();
-              notif.close();
-            };
-          }
-        }).catch(() => {});
+      } catch (e) {
+        // Ignored if browser requires Service Worker (Android Chrome)
       }
     }
   } catch (err) {
@@ -110,6 +133,29 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNowTime(Date.now());
     }, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Register ServiceWorker for Android OS System Drawer & Web Notifications
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then((reg) => {
+        console.log('Service Worker registered for OS System Notifications:', reg.scope);
+      }).catch((err) => {
+        console.warn('Service Worker registration notice:', err);
+      });
+    }
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        const askPermission = () => {
+          Notification.requestPermission().catch(() => {});
+          window.removeEventListener('click', askPermission);
+          window.removeEventListener('touchstart', askPermission);
+        };
+        window.addEventListener('click', askPermission, { once: true });
+        window.addEventListener('touchstart', askPermission, { once: true });
+      }
+    }
   }, []);
 
   useEffect(() => {
