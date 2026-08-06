@@ -959,55 +959,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error('Random sentence prompt does not match. Please re-type the exact authorization sentence shown on screen.');
     }
 
+    // Check if Auto-Approve is enabled by Admin
+    let isAutoApprove = false;
+    try {
+      const cfgSnap = await getDoc(doc(db, 'systemSettings', 'resetKeyConfig'));
+      if (cfgSnap.exists() && cfgSnap.data().autoApprove === true) {
+        isAutoApprove = true;
+      }
+    } catch (e) {
+      console.warn('Check resetKeyConfig autoApprove notice:', e);
+    }
+
     const token = 'rk_admin_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now().toString(36);
     const expiresAtMs = Date.now() + 3600000; // Active 1-Hour Reset Key
     const resetLink = `${window.location.origin}/reset-password?email=${encodeURIComponent(cleanEmail)}&token=${token}`;
-
-    // Create token doc
-    await setDoc(doc(db, 'passwordResets', token), {
-      email: cleanEmail,
-      token,
-      deviceId: deviceId || null,
-      createdAtMs: Date.now(),
-      expiresAtMs,
-      used: false,
-      requestedViaAdminTicket: true,
-      createdAt: serverTimestamp()
-    });
-
-    // Create ticket doc for Admins / Mods
     const requestId = 'req_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 6);
-    await setDoc(doc(db, 'resetRequests', requestId), {
-      id: requestId,
-      email: cleanEmail,
-      prompt: typedPrompt,
-      token,
-      resetLink,
-      deviceId: deviceId || null,
-      status: 'pending',
-      requestedAtMs: Date.now(),
-      expiresAtMs,
-      createdAt: serverTimestamp()
-    });
 
-    // Also write to signal logs for Admins/Mods
-    try {
-      await setDoc(doc(db, 'signalLogs', 'log_reset_' + requestId), {
-        id: 'log_reset_' + requestId,
-        type: 'reset_key_request',
+    if (isAutoApprove) {
+      // Create active passwordResets doc directly
+      await setDoc(doc(db, 'passwordResets', token), {
         email: cleanEmail,
-        requestId,
+        token,
+        deviceId: deviceId || null,
+        createdAtMs: Date.now(),
+        expiresAtMs,
+        used: false,
+        approvedByAdmin: true,
+        createdAt: serverTimestamp()
+      });
+
+      // Create ticket doc with approved status
+      await setDoc(doc(db, 'resetRequests', requestId), {
+        id: requestId,
+        email: cleanEmail,
+        prompt: typedPrompt,
         token,
         resetLink,
-        prompt: typedPrompt,
-        createdAt: serverTimestamp(),
-        message: `PASSWORD RESET REQUEST from ${cleanEmail} logged in signal logs`
+        deviceId: deviceId || null,
+        status: 'approved',
+        requestedAtMs: Date.now(),
+        expiresAtMs,
+        createdAt: serverTimestamp()
       });
-    } catch (e) {
-      console.warn('Error writing signal log:', e);
-    }
 
-    return { token, resetLink, requestId };
+      return { token, resetLink, requestId, status: 'approved' as const };
+    } else {
+      // Create ticket doc with pending status ONLY (No passwordResets doc created yet until Admin approves)
+      await setDoc(doc(db, 'resetRequests', requestId), {
+        id: requestId,
+        email: cleanEmail,
+        prompt: typedPrompt,
+        token,
+        resetLink,
+        deviceId: deviceId || null,
+        status: 'pending',
+        requestedAtMs: Date.now(),
+        expiresAtMs,
+        createdAt: serverTimestamp()
+      });
+
+      return { token, resetLink: '', requestId, status: 'pending' as const };
+    }
   };
 
   const resetPasswordWithToken = async (email: string, token: string, newPassword: string) => {
@@ -1099,6 +1111,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (targetDocRef) {
       await updateDoc(targetDocRef, { used: true, status: 'completed', usedAt: serverTimestamp() }).catch(() => {});
+    }
+
+    // Immediately clean up / delete reset request and token doc once used
+    try {
+      const qReq = query(collection(db, 'resetRequests'), where('token', '==', token));
+      const snapReq = await getDocs(qReq);
+      for (const d of snapReq.docs) {
+        await deleteDoc(d.ref).catch(() => {});
+      }
+      await deleteDoc(doc(db, 'passwordResets', token)).catch(() => {});
+    } catch (e) {
+      console.warn('Cleanup used token error:', e);
     }
   };
 

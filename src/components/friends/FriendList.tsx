@@ -258,13 +258,19 @@ export const FriendList: React.FC<FriendListProps> = ({
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-white text-sm truncate">
-                    {friend.fullName || friend.username}
-                  </h3>
-                  <p className="text-xs text-zinc-400 truncate">
-                    @{friend.username}
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-300 font-mono mt-1">
+                  {/* Username displayed as primary, fades out on hover to reveal Full Name */}
+                  <div className="relative group/name h-6 flex items-center">
+                    <h3 className="font-bold text-white text-sm truncate transition-opacity duration-300 group-hover/name:opacity-0">
+                      @{friend.username || friend.fullName}
+                    </h3>
+                    {friend.fullName ? (
+                      <h3 className="font-bold text-emerald-400 text-sm truncate absolute top-0 left-0 w-full opacity-0 transition-opacity duration-300 group-hover/name:opacity-100 pointer-events-none">
+                        {friend.fullName}
+                      </h3>
+                    ) : null}
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono mt-0.5">
                     <Hash className="w-3 h-3 text-zinc-500" />
                     <span>{friend.friendCode}</span>
                   </div>

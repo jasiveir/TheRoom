@@ -11,7 +11,10 @@ const SAMPLE_PROMPTS = [
   'DearAdminIhaveforgottensystempasscodekindlydispatchkeynow99',
   'Ipromisetoguardmypasscodebetterpleasegrantresetkeymaster07',
   'MasterAdminPleaseRestoreMyAccessKeyIWillBeCarefulNextTime88',
-  'SystemAdministratorIRequestAnActiveResetTokenForMyAccount42'
+  'SystemAdministratorIRequestAnActiveResetTokenForMyAccount42',
+  'PleaseVerifyMyIdentityAndGrantPasswordResetAccessAdmin303',
+  'SecurityChallengeAcceptedPleaseIssueMyOneTimeResetToken777',
+  'AdminAuthorizationRequiredForAccountPasscodeResetRequest12'
 ];
 
 interface UserResetRequestDoc {
@@ -30,19 +33,23 @@ export const ResetKeyRequestPanel: React.FC = () => {
   const { userProfile, requestAdminResetKey } = useAuth();
   const { template } = useLayoutTemplate();
 
-  const [promptIndex, setPromptIndex] = useState(0);
+  const [promptIndex, setPromptIndex] = useState(() => Math.floor(Math.random() * SAMPLE_PROMPTS.length));
   const challengePrompt = SAMPLE_PROMPTS[promptIndex];
   const [typedPrompt, setTypedPrompt] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastSubmittedReq, setLastSubmittedReq] = useState<{ token: string; resetLink: string; requestId: string } | null>(null);
+  const [lastSubmittedReq, setLastSubmittedReq] = useState<{ token: string; resetLink: string; requestId: string; status: 'pending' | 'approved' } | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const [myTickets, setMyTickets] = useState<UserResetRequestDoc[]>([]);
 
   const handleNextPrompt = () => {
-    setPromptIndex((prev) => (prev + 1) % SAMPLE_PROMPTS.length);
+    setPromptIndex((prev) => {
+      let next = Math.floor(Math.random() * SAMPLE_PROMPTS.length);
+      if (next === prev) next = (prev + 1) % SAMPLE_PROMPTS.length;
+      return next;
+    });
     setTypedPrompt('');
   };
 
@@ -142,35 +149,41 @@ export const ResetKeyRequestPanel: React.FC = () => {
           <div className="p-4 bg-black border-2 border-white text-white text-xs rounded-2xl space-y-3 animate-in fade-in shadow-xl">
             <div className="flex items-center gap-2 text-white font-black text-sm uppercase">
               <CheckCircle className="w-5 h-5 text-white shrink-0" />
-              <span>Reset Key Request Transmitted To Admin & Moderator Console!</span>
+              <span>{lastSubmittedReq.status === 'approved' ? 'Reset Key Approved & Active!' : 'Reset Key Request Transmitted To Admin / Mod!'}</span>
             </div>
 
             <p className="text-[11px] text-zinc-300 leading-relaxed bg-zinc-950 p-3 rounded-xl border border-zinc-800 font-mono">
-              Your security authorization sentence was verified! An active 1-hour reset key token (<code className="text-white font-bold">{lastSubmittedReq.token}</code>) has been generated and logged in the Admin / Mod dashboard.
+              {lastSubmittedReq.status === 'approved' ? (
+                <>Your security challenge sentence was verified and automatically approved! An active 1-hour reset key token (<code className="text-white font-bold">{lastSubmittedReq.token}</code>) is now ready to use.</>
+              ) : (
+                <>Your security authorization sentence was verified and transmitted to Admin & Moderator console! Please wait for an Admin or Moderator to approve your request. Once approved, your active key will appear below.</>
+              )}
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-1">
-              <Link
-                to={lastSubmittedReq.resetLink.replace(window.location.origin, '')}
-                className="flex-1 py-2.5 bg-white hover:bg-zinc-200 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                <KeyRound className="w-4 h-4 text-black" />
-                <span>Use Active 1-Hour Reset Key Now</span>
-              </Link>
+            {lastSubmittedReq.status === 'approved' && lastSubmittedReq.resetLink && (
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <Link
+                  to={lastSubmittedReq.resetLink.replace(window.location.origin, '')}
+                  className="flex-1 py-2.5 bg-white hover:bg-zinc-200 text-black font-black text-xs uppercase tracking-wider rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4 text-black" />
+                  <span>Use Active 1-Hour Reset Key Now</span>
+                </Link>
 
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(lastSubmittedReq.resetLink);
-                  setCopiedToken(lastSubmittedReq.token);
-                  setTimeout(() => setCopiedToken(null), 2500);
-                }}
-                className="py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 uppercase transition-all cursor-pointer"
-              >
-                {copiedToken === lastSubmittedReq.token ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-white" />}
-                <span>{copiedToken === lastSubmittedReq.token ? 'Copied!' : 'Copy Direct Reset Link'}</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(lastSubmittedReq.resetLink);
+                    setCopiedToken(lastSubmittedReq.token);
+                    setTimeout(() => setCopiedToken(null), 2500);
+                  }}
+                  className="py-2.5 px-4 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 uppercase transition-all cursor-pointer"
+                >
+                  {copiedToken === lastSubmittedReq.token ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-white" />}
+                  <span>{copiedToken === lastSubmittedReq.token ? 'Copied!' : 'Copy Direct Reset Link'}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -313,7 +326,7 @@ export const ResetKeyRequestPanel: React.FC = () => {
                       </span>
                     </div>
 
-                    {!isDismissed && (
+                    {isApproved ? (
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/reset-password?email=${encodeURIComponent(ticket.email)}&token=${ticket.token}`}
@@ -336,7 +349,11 @@ export const ResetKeyRequestPanel: React.FC = () => {
                           <span>{copiedToken === ticket.token ? 'Copied' : 'Copy'}</span>
                         </button>
                       </div>
-                    )}
+                    ) : isPending ? (
+                      <span className="text-[11px] text-amber-400 font-bold italic bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-800/60">
+                        ⏳ Awaiting Admin / Mod Review
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-lg text-[11px] space-y-1">

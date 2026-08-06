@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   collection, 
   onSnapshot, 
@@ -71,6 +71,48 @@ export const AdminDashboard: React.FC = () => {
 
   // Reset Key Requests state
   const [resetRequests, setResetRequests] = useState<ResetKeyRequest[]>([]);
+  const [autoApproveResets, setAutoApproveResets] = useState(false);
+  const prevPendingCountRef = useRef<number | null>(null);
+
+  const playChimeSound = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+    } catch (e) {
+      console.warn('Notification chime error:', e);
+    }
+  };
+
+  useEffect(() => {
+    const unsubscribeCfg = onSnapshot(doc(db, 'systemSettings', 'resetKeyConfig'), (snap) => {
+      if (snap.exists()) {
+        setAutoApproveResets(!!snap.data().autoApprove);
+      }
+    });
+    return () => unsubscribeCfg();
+  }, []);
+
+  const handleToggleAutoApprove = async () => {
+    try {
+      const newVal = !autoApproveResets;
+      await setDoc(doc(db, 'systemSettings', 'resetKeyConfig'), { autoApprove: newVal }, { merge: true });
+      showToast(`Auto-Approve Reset Requests turned ${newVal ? 'ON (Automatic)' : 'OFF (Manual Approval)'}`, 'info');
+    } catch (e: any) {
+      showToast('Failed to update Auto-Approve setting: ' + e.message, 'error');
+    }
+  };
 
   // Selected Users State for Batch Operations
   const [selectedUids, setSelectedUids] = useState<string[]>([]);
@@ -131,11 +173,32 @@ export const AdminDashboard: React.FC = () => {
 
     const qReqs = query(collection(db, 'resetRequests'), orderBy('requestedAtMs', 'desc'));
     const unsubscribeReqs = onSnapshot(qReqs, (snapshot) => {
-      const list: ResetKeyRequest[] = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<ResetKeyRequest, 'id'>)
-      }));
-      setResetRequests(list);
+      const now = Date.now();
+      const activeList: ResetKeyRequest[] = [];
+
+      snapshot.docs.forEach((d) => {
+        const data = d.data() as Omit<ResetKeyRequest, 'id'>;
+        const requestedAt = data.requestedAtMs || 0;
+        const expiresAt = data.expiresAtMs || (requestedAt + 3600000);
+
+        if (now > expiresAt || data.status === 'completed' || (data as any).used === true || data.status === 'dismissed') {
+          // Auto-delete used / completed / expired / dismissed request
+          deleteDoc(doc(db, 'resetRequests', d.id)).catch(() => {});
+          if (data.token) {
+            deleteDoc(doc(db, 'passwordResets', data.token)).catch(() => {});
+          }
+        } else {
+          activeList.push({ id: d.id, ...data });
+        }
+      });
+
+      const pendingCount = activeList.filter(r => r.status === 'pending').length;
+      if (prevPendingCountRef.current !== null && pendingCount > prevPendingCountRef.current) {
+        playChimeSound();
+      }
+      prevPendingCountRef.current = pendingCount;
+
+      setResetRequests(activeList);
     }, (err) => {
       console.warn('Error fetching resetRequests:', err);
     });
@@ -168,7 +231,7 @@ export const AdminDashboard: React.FC = () => {
 
       const link = `${window.location.origin}/reset-password?email=${encodeURIComponent(req.email)}&token=${req.token}`;
 
-      // 1. Notify user in notifications collection if user exists
+      // Notify user in notifications collection if user exists
       try {
         const uSnap = await getDocs(query(collection(db, 'users'), where('email', '==', req.email.trim().toLowerCase())));
         if (!uSnap.empty) {
@@ -188,22 +251,6 @@ export const AdminDashboard: React.FC = () => {
         console.warn('Error pushing reset notification to user:', e);
       }
 
-      // 2. Add to Signal Logs
-      try {
-        await addDoc(collection(db, 'signalLogs'), {
-          type: 'reset_key_approved',
-          email: req.email,
-          requestId: req.id,
-          token: req.token,
-          resetLink: link,
-          approvedBy: userProfile?.email || 'Admin/Mod',
-          createdAt: serverTimestamp(),
-          message: `Password Reset Approved for ${req.email}`
-        });
-      } catch (e) {
-        console.warn('Error writing signal log for approval:', e);
-      }
-
       await navigator.clipboard.writeText(link);
       showToast(`Approved! Single-use Reset Key Link for ${req.email} copied to clipboard & notification dispatched.`, 'success');
     } catch (e: any) {
@@ -212,15 +259,16 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleDismissResetRequest = async (reqId: string) => {
+  const handleDismissResetRequest = async (reqId: string, token?: string) => {
     try {
-      await updateDoc(doc(db, 'resetRequests', reqId), {
-        status: 'dismissed'
-      });
-      showToast('Reset Key request dismissed.', 'info');
+      await deleteDoc(doc(db, 'resetRequests', reqId));
+      if (token) {
+        await deleteDoc(doc(db, 'passwordResets', token)).catch(() => {});
+      }
+      showToast('Reset key request deleted.', 'info');
     } catch (e: any) {
       console.error('Dismiss reset error:', e);
-      showToast('Failed to dismiss request.', 'error');
+      showToast('Failed to delete request.', 'error');
     }
   };
 
@@ -623,9 +671,29 @@ export const AdminDashboard: React.FC = () => {
               </p>
             </div>
 
-            <span className="text-xs font-bold text-zinc-500">
-              Total Requests: {resetRequests.length}
-            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleToggleAutoApprove}
+                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                  autoApproveResets
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-500'
+                    : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border-zinc-300'
+                }`}
+                title="Toggle automatic approval for incoming reset key requests"
+              >
+                <span>Auto-Approve Mode:</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] uppercase font-black ${
+                  autoApproveResets ? 'bg-white text-emerald-900' : 'bg-zinc-800 text-white'
+                }`}>
+                  {autoApproveResets ? 'ON' : 'OFF'}
+                </span>
+              </button>
+
+              <span className="text-xs font-bold text-zinc-500">
+                Total Requests: {resetRequests.length}
+              </span>
+            </div>
           </div>
 
           {resetRequests.length === 0 ? (
@@ -704,7 +772,7 @@ export const AdminDashboard: React.FC = () => {
                         {!isDismissed && !isCompleted && (
                           <button
                             type="button"
-                            onClick={() => handleDismissResetRequest(req.id)}
+                            onClick={() => handleDismissResetRequest(req.id, req.token)}
                             className="px-2 py-1.5 text-zinc-500 hover:text-rose-600 text-[11px] font-bold underline cursor-pointer"
                           >
                             Dismiss

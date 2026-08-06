@@ -197,8 +197,9 @@ export const ChatsList: React.FC<ChatsListProps> = ({
             const otherUid = chat.type === 'private' ? chat.members.find((m) => m !== userProfile?.uid) : null;
             const otherDetail = otherUid ? chat.memberDetails?.[otherUid] : null;
 
-            const name = chat.type === 'group' ? chat.name : otherDetail?.fullName;
-            const photo = chat.type === 'group' ? chat.photoURL : otherDetail?.photoURL;
+            const isGroup = chat.type === 'group';
+            const name = isGroup ? chat.name : (otherDetail?.username ? `@${otherDetail.username}` : (otherDetail?.fullName || 'User'));
+            const photo = isGroup ? chat.photoURL : otherDetail?.photoURL;
 
             const isDeletedExpired = chat.lastMessageDeletedExpiresAt ? (Date.now() >= chat.lastMessageDeletedExpiresAt) : false;
             const displayLastMsg = isDeletedExpired ? 'Channel created' : (chat.lastMessage || 'Channel created');
@@ -233,7 +234,7 @@ export const ChatsList: React.FC<ChatsListProps> = ({
                         ? 'bg-white text-black border-white'
                         : 'bg-black text-white border-black'
                     }`}>
-                      {chat.type === 'group' ? <Users className="w-5 h-5" /> : (name?.[0]?.toUpperCase() || 'U')}
+                      {isGroup ? <Users className="w-5 h-5" /> : ((otherDetail?.username || otherDetail?.fullName)?.[0]?.toUpperCase() || 'U')}
                     </div>
                   )}
                 </div>
@@ -241,9 +242,15 @@ export const ChatsList: React.FC<ChatsListProps> = ({
                 {/* Info */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between mb-0.5">
-                    <h4 className={`font-bold text-xs truncate uppercase tracking-wider ${isSelected ? 'text-white' : 'text-black'}`}>
-                      {name}
-                    </h4>
+                    {isGroup ? (
+                      <h4 className={`font-bold text-xs truncate uppercase tracking-wider ${isSelected ? 'text-white' : 'text-black'}`}>
+                        {chat.name}
+                      </h4>
+                    ) : (
+                      <h4 className={`font-bold text-xs truncate uppercase tracking-wider ${isSelected ? 'text-white' : 'text-black'}`}>
+                        {otherDetail?.username ? `@${otherDetail.username}` : (otherDetail?.fullName || 'User')}
+                      </h4>
+                    )}
                   </div>
                   <p className={`text-[11px] truncate ${isSelected ? 'text-zinc-300 font-medium' : 'text-zinc-500'}`}>
                     {displayLastMsg}

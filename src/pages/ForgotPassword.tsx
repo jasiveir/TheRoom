@@ -10,7 +10,10 @@ const SAMPLE_PROMPTS = [
   'DearAdminIhaveforgottensystempasscodekindlydispatchkeynow99',
   'Ipromisetoguardmypasscodebetterpleasegrantresetkeymaster07',
   'MasterAdminPleaseRestoreMyAccessKeyIWillBeCarefulNextTime88',
-  'SystemAdministratorIRequestAnActiveResetTokenForMyAccount42'
+  'SystemAdministratorIRequestAnActiveResetTokenForMyAccount42',
+  'PleaseVerifyMyIdentityAndGrantPasswordResetAccessAdmin303',
+  'SecurityChallengeAcceptedPleaseIssueMyOneTimeResetToken777',
+  'AdminAuthorizationRequiredForAccountPasscodeResetRequest12'
 ];
 
 export const ForgotPassword: React.FC = () => {
@@ -20,11 +23,11 @@ export const ForgotPassword: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'admin' | 'email'>('admin');
   const [email, setEmail] = useState('');
   
-  // Admin request states
-  const [promptIndex, setPromptIndex] = useState(0);
+  // Admin request states - pick a random challenge prompt on load
+  const [promptIndex, setPromptIndex] = useState(() => Math.floor(Math.random() * SAMPLE_PROMPTS.length));
   const challengePrompt = SAMPLE_PROMPTS[promptIndex];
   const [typedPrompt, setTypedPrompt] = useState('');
-  const [adminRequestSuccess, setAdminRequestSuccess] = useState<{ token: string; resetLink: string; requestId: string } | null>(null);
+  const [adminRequestSuccess, setAdminRequestSuccess] = useState<{ token: string; resetLink: string; requestId: string; status: 'pending' | 'approved' } | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -33,7 +36,11 @@ export const ForgotPassword: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
 
   const handleNextPrompt = () => {
-    setPromptIndex((prev) => (prev + 1) % SAMPLE_PROMPTS.length);
+    setPromptIndex((prev) => {
+      let next = Math.floor(Math.random() * SAMPLE_PROMPTS.length);
+      if (next === prev) next = (prev + 1) % SAMPLE_PROMPTS.length;
+      return next;
+    });
     setTypedPrompt('');
   };
 
@@ -162,39 +169,67 @@ export const ForgotPassword: React.FC = () => {
             {adminRequestSuccess ? (
               <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs rounded-2xl text-center space-y-3 animate-in fade-in shadow-xs">
                 <CheckCircle className="w-10 h-10 text-emerald-600 mx-auto" />
-                <h3 className="font-black text-sm uppercase tracking-wider text-emerald-950">Reset Request Transmitted To Admin / Mod!</h3>
+                <h3 className="font-black text-sm uppercase tracking-wider text-emerald-950">
+                  {adminRequestSuccess.status === 'approved' ? 'Reset Key Approved By Admin / Mod!' : 'Reset Request Transmitted To Admin / Mod!'}
+                </h3>
                 
                 <div className="bg-white p-3.5 rounded-xl border border-emerald-200 text-left space-y-1.5 text-[11px] text-zinc-700">
                   <p><strong className="text-black">Target Email:</strong> {email}</p>
                   <p><strong className="text-black">Authorization Ticket ID:</strong> <code className="bg-zinc-100 px-1 py-0.5 rounded text-black font-bold">{adminRequestSuccess.requestId}</code></p>
-                  <p><strong className="text-black">Status:</strong> <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold uppercase text-[9px]">Logged in Admin / Mod Console</span></p>
+                  <p>
+                    <strong className="text-black">Status:</strong>{' '}
+                    <span className={`px-2 py-0.5 rounded font-bold uppercase text-[9px] ${
+                      adminRequestSuccess.status === 'approved' 
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}>
+                      {adminRequestSuccess.status === 'approved' ? 'Approved & Key Active' : 'Awaiting Admin / Mod Review'}
+                    </span>
+                  </p>
                   <p className="text-[11px] text-emerald-800 pt-1 font-medium">
-                    ✨ <strong>Device Auto Pop-Up Active:</strong> Once an Admin or Moderator approves this request in their signal logs or dashboard, a direct pop-up will appear on this device to let you reset your password immediately.
+                    ✨ <strong>Device Auto Pop-Up Active:</strong> {adminRequestSuccess.status === 'approved'
+                      ? 'Your request was automatically approved! Click below or use the pop-up to reset.'
+                      : 'Once an Admin or Moderator approves this request in their dashboard, a pop-up will appear directly on this device screen automatically.'}
                   </p>
                 </div>
 
-                <div className="space-y-2 pt-2">
-                  <Link
-                    to={adminRequestSuccess.resetLink.replace(window.location.origin, '')}
-                    className="w-full py-3 bg-black hover:bg-zinc-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <KeyRound className="w-4 h-4 text-emerald-400" />
-                    <span>Click to Open Single-Use Reset Screen</span>
-                  </Link>
+                {adminRequestSuccess.status === 'approved' && adminRequestSuccess.resetLink ? (
+                  <div className="space-y-2 pt-2">
+                    <Link
+                      to={adminRequestSuccess.resetLink.replace(window.location.origin, '')}
+                      className="w-full py-3 bg-black hover:bg-zinc-800 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <KeyRound className="w-4 h-4 text-emerald-400" />
+                      <span>Click to Open Single-Use Reset Screen</span>
+                    </Link>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(adminRequestSuccess.resetLink);
-                      setCopiedLink(true);
-                      setTimeout(() => setCopiedLink(false), 2500);
-                    }}
-                    className="w-full py-2 bg-white hover:bg-zinc-50 border border-zinc-300 text-zinc-800 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 uppercase transition-all cursor-pointer"
-                  >
-                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-zinc-600" />}
-                    <span>{copiedLink ? 'Reset Link Copied!' : 'Copy Direct Single-Use Reset Link'}</span>
-                  </button>
-                </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(adminRequestSuccess.resetLink);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2500);
+                      }}
+                      className="w-full py-2 bg-white hover:bg-zinc-50 border border-zinc-300 text-zinc-800 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 uppercase transition-all cursor-pointer"
+                    >
+                      {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-zinc-600" />}
+                      <span>{copiedLink ? 'Reset Link Copied!' : 'Copy Direct Single-Use Reset Link'}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdminRequestSuccess(null);
+                        setTypedPrompt('');
+                      }}
+                      className="w-full py-2.5 bg-white hover:bg-zinc-100 border border-zinc-300 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+                    >
+                      Submit Another Request
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <form onSubmit={handleSubmitAdminRequest} className="space-y-4">

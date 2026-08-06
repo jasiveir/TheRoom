@@ -341,9 +341,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
             )}
 
             <div className="min-w-0 flex-1 overflow-hidden">
-              <h3 className="font-bold text-xs sm:text-sm text-black truncate uppercase tracking-wider block min-w-0">
-                {chat.type === 'group' ? chat.name : (otherDetail?.fullName || 'User')}
-              </h3>
+              {chat.type === 'group' ? (
+                <h3 className="font-bold text-xs sm:text-sm text-black truncate uppercase tracking-wider block min-w-0">
+                  {chat.name}
+                </h3>
+              ) : (
+                <div className="relative group/chatheader h-5 flex items-center min-w-0 w-full">
+                  <h3 className="font-bold text-xs sm:text-sm text-black truncate uppercase tracking-wider transition-opacity duration-300 group-hover/chatheader:opacity-0 block min-w-0">
+                    {otherDetail?.username ? `@${otherDetail.username}` : (otherDetail?.fullName || 'User')}
+                  </h3>
+                  {otherDetail?.fullName ? (
+                    <h3 className="font-bold text-xs sm:text-sm text-emerald-600 truncate uppercase tracking-wider absolute top-0 left-0 w-full opacity-0 transition-opacity duration-300 group-hover/chatheader:opacity-100 pointer-events-none block min-w-0">
+                      {otherDetail.fullName}
+                    </h3>
+                  ) : null}
+                </div>
+              )}
               <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate flex items-center gap-1.5 font-sans min-w-0">
                 {chat.type === 'group' ? (
                   <span>{chat.members.length} members</span>
