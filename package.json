@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "release": "vite build && npx cap sync android"
+    "release": "vite build && firebase deploy && npx cap sync android"
   },
   "dependencies": {
     "@capacitor-community/keep-awake": "^8.0.1",
