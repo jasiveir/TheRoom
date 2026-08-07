@@ -89,10 +89,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </div>
-            <p className={`text-[10px] ${template.textSecondary} font-mono hidden md:flex items-center gap-1 truncate`}>
-              <Activity className={`w-3 h-3 ${template.accentText} shrink-0`} />
-              <span>SECURE PRIVATE CHAT</span>
-            </p>
           </div>
         </div>
       </div>

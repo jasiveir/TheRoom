@@ -594,7 +594,7 @@ export const AdminDashboard: React.FC = () => {
             <span className={`px-3 py-1 ${
               template.id === 'apple-glass' ? 'animate-spectrum-bg text-black font-black' : 'bg-black text-white font-extrabold'
             } text-xs font-mono rounded-full border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}>
-              {isMainAdmin ? 'Main Admin' : 'Moderator'}
+              {isMainAdmin ? 'Admin' : 'Moderator'}
             </span>
           </div>
         </div>
@@ -1076,7 +1076,7 @@ export const AdminDashboard: React.FC = () => {
                         <td className="py-3 px-4 font-medium">
                           {isTargetMainAdmin ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-black text-white">
-                              Main Admin
+                              Admin
                             </span>
                           ) : isMod ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
@@ -1089,15 +1089,6 @@ export const AdminDashboard: React.FC = () => {
 
                         <td className="py-3 px-4 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {/* Password Reset */}
-                            <button
-                              onClick={() => handleTriggerPasswordReset(u.email)}
-                              className="p-1.5 rounded-lg text-zinc-600 hover:text-black hover:bg-zinc-100"
-                              title="Send Password Reset Email"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" />
-                            </button>
-
                             {/* Moderator Toggle */}
                             {isMainAdmin && !isTargetMainAdmin && (
                               <button
@@ -1108,7 +1099,7 @@ export const AdminDashboard: React.FC = () => {
                                     : 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
                                 }`}
                               >
-                                {isMod ? 'Revoke Mod' : '+ Make Mod'}
+                                {isMod ? 'Revoke Mod' : 'Make Mod'}
                               </button>
                             )}
 

@@ -192,7 +192,6 @@ export const SignUp: React.FC = () => {
             <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-extrabold text-black tracking-wider uppercase">Join TheRoom</h1>
-          <p className="text-xs text-zinc-600 font-medium uppercase tracking-widest">// CREATE ACCOUNT & FRIEND CODE //</p>
         </div>
 
         {error && (

@@ -58,14 +58,10 @@ export const AuthSelection: React.FC = () => {
             />
           </div>
           <h1 className="text-3xl font-extrabold text-black tracking-wider uppercase">TheRoom</h1>
-          <p className="text-xs text-zinc-500 font-medium mt-1.5 uppercase tracking-widest flex items-center justify-center gap-1.5">
-            <Shield className="w-3.5 h-3.5 text-emerald-600" />
-            <span>SECURE PRIVATE MESSAGING</span>
-          </p>
         </div>
 
         <p className="text-xs text-zinc-600 mb-8 max-w-sm mx-auto leading-relaxed">
-          Welcome to TheRoom. Experience real-time end-to-end encrypted messaging, customizable Matrix interfaces, and private group rooms.
+          Welcome to TheRoom.
         </p>
 
         {error && (
@@ -137,22 +133,6 @@ export const AuthSelection: React.FC = () => {
             </div>
             <ArrowRight className="w-5 h-5 text-zinc-500 group-hover:text-black group-hover:translate-x-1 transition-transform shrink-0" />
           </button>
-        </div>
-
-        {/* Feature Badges */}
-        <div className="mt-8 pt-6 border-t border-[#e2dfd2] grid grid-cols-3 gap-2 text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
-          <div className="flex flex-col items-center gap-1">
-            <MessageSquare className="w-4 h-4 text-zinc-700" />
-            <span>Private Rooms</span>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <Shield className="w-4 h-4 text-emerald-600" />
-            <span>Encrypted</span>
-          </div>
-          <div className="flex flex-col items-center gap-1">
-            <Sparkles className="w-4 h-4 text-amber-600" />
-            <span>Custom Matrix</span>
-          </div>
         </div>
       </div>
     </div>

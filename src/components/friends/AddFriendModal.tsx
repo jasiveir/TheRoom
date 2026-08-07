@@ -161,7 +161,6 @@ export const AddFriendModal: React.FC<AddFriendModalProps> = ({ isOpen, onClose 
         {/* Discovery Rules Banner */}
 
         <div className="my-4 p-3 bg-zinc-900 border-2 border-zinc-800 rounded-xl text-xs text-zinc-300 flex items-start gap-2.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
-          <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
           <div>
             <p className="font-bold mb-0.5 text-white">Strict Privacy Protection</p>
             <p className="text-[11px] leading-relaxed text-zinc-400">

@@ -22,6 +22,7 @@ import { auth, db } from '../lib/firebase';
 import { UserProfile, AccountStatus } from '../types';
 import { generateUniqueFriendCode } from '../lib/friendCode';
 import { sanitizePhotoURL } from '../lib/imageUtils';
+import { isApkMode } from '../lib/deviceUtils';
 
 interface AuthContextType {
   firebaseUser: User | null;
@@ -715,16 +716,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       let cred: any = null;
 
-      // Check if running inside standard Capacitor / Android Native container
+      // Check if running inside actual Capacitor Native platform
       const isCapacitorNative = typeof window !== 'undefined' && (
         !!(window as any).Capacitor?.isNativePlatform?.() ||
-        !!(window as any).Capacitor?.isNative ||
-        window.location.protocol === 'file:' ||
-        /Capacitor/i.test(navigator.userAgent)
+        (window as any).Capacitor?.isNative === true ||
+        window.location.protocol === 'file:'
       );
 
-      // 1. Try Native Google Auth plugin if available (for Android APK)
-      if (isCapacitorNative || typeof window !== 'undefined') {
+      // 1. Try Native Google Auth plugin if running in Capacitor Native App
+      if (isCapacitorNative) {
         try {
           let googleAuthPlugin: any = (window as any).Capacitor?.Plugins?.GoogleAuth;
           if (!googleAuthPlugin) {
@@ -757,18 +757,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // 2. If native auth didn't execute or return a credential, use web popup fallback
+      // 2. Web / Browser / Fallback flow
       if (!cred) {
-        const isAndroidWebView = typeof window !== 'undefined' && (
-          /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent) ||
-          !!(window as any).Capacitor ||
-          !!(window as any).Cordova ||
-          window.location.protocol === 'file:' ||
-          (navigator.userAgent.includes('Android') && !navigator.userAgent.includes('Chrome/'))
+        // Detect strict embedded WebView on Android APKs where Google blocks OAuth popups
+        const isStrictAndroidWebView = typeof window !== 'undefined' && (
+          isCapacitorNative ||
+          (isApkMode() && /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent))
         );
 
-        if (isAndroidWebView && !(window as any).Capacitor?.Plugins?.GoogleAuth) {
-          throw new Error('Google Sign-In via browser popup is restricted inside Android app WebViews by Google policy. Please sign in using Email & Password or Guest Mode on this APK version.');
+        if (isStrictAndroidWebView && !(window as any).Capacitor?.Plugins?.GoogleAuth) {
+          throw new Error('Google Sign-In via browser popup is restricted inside Android app WebViews by Google policy. Please sign in using Email & Password or Guest Mode on this APK version, or open https://theroom-box.web.app in your mobile browser.');
         }
 
         const provider = new GoogleAuthProvider();
@@ -776,13 +774,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           prompt: 'select_account'
         });
 
-        // Wrap popup in a 25-second timeout so it never hangs indefinitely
-        const popupPromise = signInWithPopup(auth, provider);
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Google Sign-In request timed out. Please try again or use Email & Password.')), 25000);
-        });
+        try {
+          // Wrap popup in a 30-second timeout so it never hangs indefinitely
+          const popupPromise = signInWithPopup(auth, provider);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Google Sign-In request timed out. Please try again or use Email & Password.')), 30000);
+          });
 
-        cred = await Promise.race([popupPromise, timeoutPromise]) as any;
+          cred = await Promise.race([popupPromise, timeoutPromise]) as any;
+        } catch (popupErr: any) {
+          // Fallback to signInWithRedirect if popup was blocked on web browsers
+          if (
+            (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') &&
+            !isStrictAndroidWebView &&
+            typeof window !== 'undefined'
+          ) {
+            console.log('Popup blocked or closed, trying redirect flow for web browser...');
+            await signInWithRedirect(auth, provider);
+            return;
+          }
+          throw popupErr;
+        }
       }
 
       if (cred && cred.user) {

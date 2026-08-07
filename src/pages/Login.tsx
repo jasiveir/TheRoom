@@ -104,7 +104,6 @@ export const Login: React.FC = () => {
             <img src={logoImg} onError={(e) => { e.currentTarget.src = '/logos/logo.jpg'; }} alt="TheRoom Logo" className="w-full h-full object-cover" />
           </div>
           <h1 className="text-2xl font-extrabold text-black tracking-wider uppercase">TheRoom</h1>
-          <p className="text-xs text-zinc-600 font-medium mt-1 uppercase tracking-widest">// SECURE MESSAGING // Vintage Node //</p>
         </div>
 
         {error && (
