@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Volume2, Check, X, ShieldCheck, Radio, Camera, Cpu } from 'lucide-react';
 import { playGlitchNotificationSound } from '../../lib/audio';
+import { isApkMode } from '../../lib/deviceUtils';
 
 interface ApkPermissionModalProps {
   isOpen: boolean;
@@ -27,7 +28,8 @@ export const ApkPermissionModal: React.FC<ApkPermissionModalProps> = ({ isOpen, 
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Strictly return null if not open or if NOT running in installed APK mode
+  if (!isOpen || !isApkMode()) return null;
 
   const handleTestGlitchSound = () => {
     playGlitchNotificationSound();

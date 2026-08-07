@@ -123,9 +123,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               id="sidebar-download-apk-btn"
               onClick={onOpenDownloadApk}
-              className={`col-span-1 flex items-center justify-center gap-1.5 p-2 bg-green-500 text-black hover:bg-green-400 rounded-xl text-xs font-black transition-all border-2 border-black active:scale-95 uppercase tracking-wider cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}
+              className={`${onOpenQrCode ? 'col-span-1' : 'col-span-2'} flex items-center justify-center gap-1.5 p-2 bg-emerald-500 text-black hover:bg-emerald-400 rounded-xl text-xs font-extrabold transition-all border-2 border-black active:scale-95 uppercase tracking-wider cursor-pointer shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]`}
             >
-              <Download className="w-3.5 h-3.5 text-black" />
+              <Download className="w-3.5 h-3.5 text-black stroke-[3]" />
               <span>Get APK</span>
             </button>
           )}

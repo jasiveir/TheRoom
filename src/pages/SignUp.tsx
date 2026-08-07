@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMatrixTransition } from '../context/MatrixTransitionContext';
 import { compressAndResizeImage, sanitizePhotoURL } from '../lib/imageUtils';
 import logoImg from '../assets/TheRoom.jpg';
+import { clearMobileBypass } from '../lib/deviceUtils';
 import { 
   User, 
   Mail, 
@@ -35,6 +36,7 @@ export const SignUp: React.FC = () => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
+      clearMobileBypass();
       triggerMatrixTransition(() => {
         navigate('/');
       }, 700, true);
@@ -148,6 +150,8 @@ export const SignUp: React.FC = () => {
         phoneNumber: phoneNumber.trim(),
         photoURL: cleanPhotoURL
       });
+
+      clearMobileBypass();
 
       triggerMatrixTransition(() => {
         navigate('/');

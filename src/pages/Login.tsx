@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMatrixTransition } from '../context/MatrixTransitionContext';
 import { Lock, Mail, Eye, EyeOff, LogIn, AlertCircle, ArrowLeft } from 'lucide-react';
 import logoImg from '../assets/TheRoom.jpg';
+import { clearMobileBypass } from '../lib/deviceUtils';
 
 export const Login: React.FC = () => {
   const { signIn, signInWithGoogle } = useAuth();
@@ -23,6 +24,7 @@ export const Login: React.FC = () => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
+      clearMobileBypass();
       triggerMatrixTransition(() => {
         navigate('/');
       }, 700, true);
@@ -61,6 +63,7 @@ export const Login: React.FC = () => {
 
     try {
       await signIn(email.trim(), password);
+      clearMobileBypass();
       triggerMatrixTransition(() => {
         navigate('/');
       }, 700, true);

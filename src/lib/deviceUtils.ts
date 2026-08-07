@@ -24,21 +24,42 @@ export function isApkMode(): boolean {
 
   // 4. Standalone / PWA / Installed Web App display modes
   if ((window.navigator as any).standalone === true) return true;
-  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+  if (window.matchMedia) {
+    if (window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
+    if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
+  }
 
   // 5. WebView UserAgent detection (Android WebView / APK wrapper)
   const ua = (navigator.userAgent || navigator.vendor || w.opera || '').toLowerCase();
   if (ua.includes('theroom') || ua.includes('capacitor') || ua.includes('cordova') || ua.includes('android-apk')) return true;
-  // Android WebView usually includes 'wv' or 'version/4.0'
-  if (ua.includes('android') && (ua.includes('wv') || ua.includes('fbav') || ua.includes('line'))) return true;
+  // Android WebView usually includes 'wv' or 'version/4.0' or 'x-requested-with'
+  if (ua.includes('android') && (ua.includes('wv') || ua.includes('fbav') || ua.includes('line') || ua.includes('version/4.0'))) return true;
 
   return false;
 }
 
 export function isMobileDevice(): boolean {
   if (typeof window === 'undefined') return false;
-  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobi|Tablet/i.test(ua);
+  const ua = (navigator.userAgent || navigator.vendor || (window as any).opera || '').toLowerCase();
+  
+  // 1. Standard mobile/tablet UA strings
+  const isMobileUA = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini|mobi|tablet|silk|kindle/i.test(ua);
+  if (isMobileUA) return true;
+
+  // 2. iPadOS desktop mode detection (reports Macintosh UA with touch points)
+  if (navigator.maxTouchPoints && navigator.maxTouchPoints > 1 && /macintosh/i.test(ua)) {
+    return true;
+  }
+
+  // 3. Coarse pointer (touch screen) with mobile/tablet screen dimensions
+  if (typeof window.matchMedia === 'function') {
+    const isCoarseTouch = window.matchMedia('(pointer: coarse)').matches;
+    const isMobileWidth = window.innerWidth <= 1024 || window.innerHeight <= 1024;
+    if (isCoarseTouch && isMobileWidth) return true;
+  }
+
+  return false;
 }
 
 export function isAndroidDevice(): boolean {
@@ -49,8 +70,8 @@ export function isAndroidDevice(): boolean {
 
 export function isMobileLockActive(): boolean {
   if (typeof window === 'undefined') return false;
-  if (isApkMode()) return false; // Native APK app never locks
-  if (!isMobileDevice()) return false; // Desktop/PC browsers do not lock and do not show app download
+  if (isApkMode()) return false; // Installed APK app NEVER locks
+  if (!isMobileDevice()) return false; // Desktop/PC browsers NEVER lock
   if (sessionStorage.getItem('bypass_mobile_lock') === 'true') return false;
   return true;
 }
@@ -62,6 +83,12 @@ export function setMobileBypass(bypass: boolean = true) {
   } else {
     sessionStorage.removeItem('bypass_mobile_lock');
   }
+}
+
+export function clearMobileBypass() {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem('bypass_mobile_lock');
+  window.dispatchEvent(new Event('mobile_lock_reset'));
 }
 
 export function setAndroidBypass(bypass: boolean = true) {
@@ -80,3 +107,4 @@ export function setApkModeOverride(enabled: boolean) {
     localStorage.removeItem('is_apk_mode');
   }
 }
+

@@ -4,6 +4,7 @@ import { LogIn, UserPlus, Shield, Sparkles, MessageSquare, ArrowRight, AlertCirc
 import logoImg from '../assets/TheRoom.jpg';
 import { useAuth } from '../context/AuthContext';
 import { useMatrixTransition } from '../context/MatrixTransitionContext';
+import { clearMobileBypass } from '../lib/deviceUtils';
 
 export const AuthSelection: React.FC = () => {
   const { signInWithGoogle } = useAuth();
@@ -17,6 +18,7 @@ export const AuthSelection: React.FC = () => {
     setGoogleLoading(true);
     try {
       await signInWithGoogle();
+      clearMobileBypass();
       triggerMatrixTransition(() => {
         navigate('/');
       }, 700, true);

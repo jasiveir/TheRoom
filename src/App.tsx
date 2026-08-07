@@ -14,6 +14,7 @@ import { ForgotPassword } from './pages/ForgotPassword';
 import { StandaloneResetPassword } from './pages/StandaloneResetPassword';
 import { AuthSelection } from './pages/AuthSelection';
 import { ApprovedResetPopup } from './components/notifications/ApprovedResetPopup';
+import { MobileAppDownloadLock } from './components/layout/MobileAppDownloadLock';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -60,6 +61,7 @@ export default function App() {
             <NotificationProvider>
               <VoiceCallProvider>
                 <BrowserRouter>
+                  <MobileAppDownloadLock />
                   <ApprovedResetPopup />
                   <Routes>
                   {/* Public Routes */}
