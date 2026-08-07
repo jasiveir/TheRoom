@@ -151,18 +151,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         )}
 
-        {!isApp && isMobileDevice() && onOpenDownloadApk && (
-          <button
-            id="nav-get-apk-btn"
-            onClick={onOpenDownloadApk}
-            className="flex items-center gap-1.5 px-2 py-1.5 sm:px-2.5 sm:py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] sm:text-xs font-extrabold rounded-lg border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-all cursor-pointer uppercase tracking-wider shrink-0"
-            title="Download Official Android APK"
-          >
-            <Download className="w-3.5 h-3.5 text-black stroke-[3]" />
-            <span>Get APK</span>
-          </button>
-        )}
-
         {/* User Profile Menu */}
         <div className="relative">
           <button
