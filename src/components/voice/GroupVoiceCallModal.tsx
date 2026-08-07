@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Users, Activity, Shield } from 'lucide-react';
+import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Users, Activity, Shield, Minimize2, Maximize2 } from 'lucide-react';
 import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, collection, addDoc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +38,7 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [durationSec, setDurationSec] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -298,6 +299,45 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     setIsSpeakerOn(!isSpeakerOn);
   };
 
+  // Handle Android System Back gesture & Browser Back button to MINIMIZE group call
+  useEffect(() => {
+    if (isMinimized) return;
+
+    try {
+      window.history.pushState({ groupCallModalActive: true }, '');
+    } catch (_) {}
+
+    const handlePopState = () => {
+      setIsMinimized(true);
+    };
+
+    const handleNativeBackButton = (e: any) => {
+      if (e?.preventDefault) e.preventDefault();
+      setIsMinimized(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    document.addEventListener('backbutton', handleNativeBackButton);
+
+    let capListener: any = null;
+    const CapApp = (window as any).Capacitor?.Plugins?.App;
+    if (CapApp && typeof CapApp.addListener === 'function') {
+      CapApp.addListener('backButton', () => {
+        setIsMinimized(true);
+      }).then((listener: any) => {
+        capListener = listener;
+      }).catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('backbutton', handleNativeBackButton);
+      if (capListener && typeof capListener.remove === 'function') {
+        capListener.remove();
+      }
+    };
+  }, [isMinimized]);
+
   // Leave Group Voice Call cleanly
   const handleLeaveCall = async () => {
     // 1. Close all WebRTC connections
@@ -331,8 +371,85 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     onClose();
   };
 
+  if (isMinimized) {
+    return (
+      <>
+        {/* Render hidden audio streams for remote group participants */}
+        {Array.from(remoteStreams.entries()).map(([peerUid, stream]) => (
+          <audio
+            key={peerUid}
+            ref={(el) => {
+              if (el) {
+                if (el.srcObject !== stream) {
+                  el.srcObject = stream;
+                }
+                if (el.paused) {
+                  el.play().catch((e) => console.warn('Remote stream play info:', e));
+                }
+              }
+            }}
+            autoPlay
+            playsInline
+            muted={!isSpeakerOn}
+          />
+        ))}
+
+        <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[200] bg-zinc-950/95 border-2 border-emerald-500/80 shadow-[0_8px_30px_rgb(0,0,0,0.8)] rounded-2xl p-3 flex items-center gap-3 text-white backdrop-blur-md font-sans animate-in slide-in-from-bottom-5 duration-200">
+          <div className="relative cursor-pointer flex items-center gap-2.5" onClick={() => setIsMinimized(false)}>
+            {groupPhoto ? (
+              <img src={groupPhoto} alt={groupName} className="w-10 h-10 rounded-xl object-cover border border-zinc-700" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center border border-emerald-500">
+                <Users className="w-5 h-5" />
+              </div>
+            )}
+            <span className="absolute bottom-0 left-7 w-3 h-3 bg-emerald-500 border-2 border-zinc-950 rounded-full animate-pulse" />
+          </div>
+
+          <div className="flex flex-col cursor-pointer min-w-[100px]" onClick={() => setIsMinimized(false)}>
+            <span className="text-xs font-bold text-white max-w-[120px] truncate">{groupName}</span>
+            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+              {participants.length} in call • {formatTimer(durationSec)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-800">
+            <button
+              type="button"
+              onClick={handleToggleMute}
+              className={`p-2 rounded-full border transition-all cursor-pointer ${
+                isMuted ? 'bg-rose-950/80 border-rose-500 text-rose-400' : 'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700'
+              }`}
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLeaveCall}
+              className="p-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-md active:scale-95"
+              title="Leave Group Call"
+            >
+              <PhoneOff className="w-4 h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMinimized(false)}
+              className="p-2 rounded-full bg-zinc-800 border border-zinc-700 text-emerald-400 hover:bg-zinc-700 transition-all cursor-pointer"
+              title="Expand Full Screen"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-4 font-sans select-none animate-in fade-in duration-300">
       
       {/* Hidden DOM Audio elements for all remote group call participants */}
       {Array.from(remoteStreams.entries()).map(([otherUid, stream]) => (
@@ -361,12 +478,23 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
             <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-              Encrypted Group Voice Session
+              Group Voice Call
             </span>
           </div>
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-mono font-bold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            {formatTimer(durationSec)}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMinimized(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full text-[11px] text-zinc-200 font-bold transition-all cursor-pointer active:scale-95"
+              title="Minimize Group Call to Dashboard"
+            >
+              <Minimize2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Minimize</span>
+            </button>
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[11px] font-mono font-bold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              {formatTimer(durationSec)}
+            </div>
           </div>
         </div>
 

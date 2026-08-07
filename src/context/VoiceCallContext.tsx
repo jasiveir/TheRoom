@@ -5,6 +5,8 @@ import { useAuth } from './AuthContext';
 import { VoiceCallModal, ActiveVoiceCall } from '../components/voice/VoiceCallModal';
 import { GroupVoiceCallModal } from '../components/voice/GroupVoiceCallModal';
 import { IncomingGroupCallModal } from '../components/voice/IncomingGroupCallModal';
+import { triggerOSCallNotification } from './NotificationContext';
+import { startCallRingtone, stopCallRingtone } from '../lib/audio';
 
 export interface ActiveGroupCall {
   chatId: string;
@@ -55,10 +57,12 @@ export const VoiceCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (!snapshot.empty) {
         const docSnap = snapshot.docs[0];
         const data = docSnap.data();
+        const callerName = data.callerName || 'Friend';
+
         setActiveCall({
           id: docSnap.id,
           callerId: data.callerId,
-          callerName: data.callerName || 'Friend',
+          callerName,
           callerAvatar: data.callerAvatar || '',
           receiverId: data.receiverId,
           receiverName: data.receiverName || userProfile.displayName || 'Me',
@@ -67,10 +71,21 @@ export const VoiceCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           status: 'calling',
           createdAtMs: data.createdAtMs || Date.now()
         });
+
+        // Trigger OS Call Drawer Notification & Ringtone if received from someone else
+        if (data.callerId !== userProfile.uid) {
+          triggerOSCallNotification(callerName);
+          startCallRingtone();
+        }
+      } else {
+        stopCallRingtone();
       }
     });
 
-    return () => unsub();
+    return () => {
+      unsub();
+      stopCallRingtone();
+    };
   }, [userProfile?.uid]);
 
   // Listen for active group calls in groups the user belongs to

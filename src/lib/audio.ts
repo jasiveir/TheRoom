@@ -220,5 +220,22 @@ export function playGlitchNotificationSound() {
   }
 }
 
+let ringtoneInterval: any = null;
+
+export function startCallRingtone() {
+  stopCallRingtone();
+  playBellSound();
+  ringtoneInterval = setInterval(() => {
+    playBellSound();
+  }, 2200);
+}
+
+export function stopCallRingtone() {
+  if (ringtoneInterval) {
+    clearInterval(ringtoneInterval);
+    ringtoneInterval = null;
+  }
+}
+
 
 

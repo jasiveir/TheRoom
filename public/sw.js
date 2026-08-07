@@ -24,7 +24,27 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+  if (!event.data) return;
+
+  if (event.data.type === 'SHOW_CALL_NOTIFICATION') {
+    const { callerName, callType } = event.data;
+    self.registration.showNotification('📞 INCOMING VOICE CALL', {
+      body: `${callerName || 'Someone'} is calling you on TheRoom! Tap to open full screen UI.`,
+      icon: '/logos/icon-192.png',
+      badge: '/logos/icon-192.png',
+      vibrate: [500, 250, 500, 250, 500, 250, 500],
+      tag: 'theroom-call-active',
+      renotify: true,
+      requireInteraction: true,
+      priority: 'high',
+      urgency: 'high',
+      data: { url: '/' },
+      actions: [
+        { action: 'answer', title: '📞 Answer Call' },
+        { action: 'decline', title: '❌ Decline' }
+      ]
+    });
+  } else if (event.data.type === 'SHOW_NOTIFICATION') {
     const { title, body, icon, badge, tag } = event.data;
     self.registration.showNotification(title || 'TheRoom Signal', {
       body: body || 'New encrypted message received',

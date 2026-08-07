@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User } from 'lucide-react';
+import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User, Minimize2, Maximize2 } from 'lucide-react';
 import { doc, onSnapshot, updateDoc, collection, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
-import { playGlitchNotificationSound } from '../../lib/audio';
+import { playGlitchNotificationSound, stopCallRingtone } from '../../lib/audio';
 
 export interface ActiveVoiceCall {
   id: string;
@@ -37,6 +37,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [durationSec, setDurationSec] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
@@ -263,6 +264,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
   };
 
   const handleEndCall = () => {
+    stopCallRingtone();
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((t) => t.stop());
     }
@@ -272,6 +274,48 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     if (ringingIntervalRef.current) clearInterval(ringingIntervalRef.current);
     onEndCall();
   };
+
+  // Handle Android System Back gesture & Browser Back button to MINIMIZE call
+  useEffect(() => {
+    if (isMinimized) return;
+
+    // Push state to browser history so back gesture triggers popstate
+    try {
+      window.history.pushState({ callModalActive: true }, '');
+    } catch (_) {}
+
+    const handlePopState = () => {
+      // Intercept back gesture/button and minimize call instead of closing/navigating
+      setIsMinimized(true);
+    };
+
+    const handleNativeBackButton = (e: any) => {
+      // Handle native Android hardware/gesture back button (Cordova/Capacitor)
+      if (e?.preventDefault) e.preventDefault();
+      setIsMinimized(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    document.addEventListener('backbutton', handleNativeBackButton);
+
+    let capListener: any = null;
+    const CapApp = (window as any).Capacitor?.Plugins?.App;
+    if (CapApp && typeof CapApp.addListener === 'function') {
+      CapApp.addListener('backButton', () => {
+        setIsMinimized(true);
+      }).then((listener: any) => {
+        capListener = listener;
+      }).catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('backbutton', handleNativeBackButton);
+      if (capListener && typeof capListener.remove === 'function') {
+        capListener.remove();
+      }
+    };
+  }, [isMinimized]);
 
   const toggleMute = () => {
     if (localStreamRef.current) {
@@ -300,6 +344,64 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
   const otherPersonName = isCaller ? call.receiverName : call.callerName;
   const otherPersonAvatar = isCaller ? call.receiverAvatar : call.callerAvatar;
 
+  // Minimized Widget View
+  if (isMinimized) {
+    return (
+      <>
+        {/* Hidden audio element for WebRTC remote audio playback */}
+        <audio ref={remoteAudioRef} autoPlay playsInline />
+
+        <div className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-[200] bg-zinc-950/95 border-2 border-emerald-500/80 shadow-[0_8px_30px_rgb(0,0,0,0.8)] rounded-2xl p-3 flex items-center gap-3 text-white backdrop-blur-md font-sans animate-in slide-in-from-bottom-5 duration-200">
+          <div className="relative cursor-pointer flex items-center gap-2.5" onClick={() => setIsMinimized(false)}>
+            {otherPersonAvatar ? (
+              <img src={otherPersonAvatar} alt={otherPersonName} className="w-10 h-10 rounded-full object-cover border border-zinc-700" referrerPolicy="no-referrer" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center font-bold text-xs text-white">
+                {otherPersonName?.[0]?.toUpperCase() || <User className="w-5 h-5 text-zinc-400" />}
+              </div>
+            )}
+            <span className="absolute bottom-0 left-7 w-3 h-3 bg-emerald-500 border-2 border-zinc-950 rounded-full animate-pulse" />
+          </div>
+
+          <div className="flex flex-col cursor-pointer min-w-[90px]" onClick={() => setIsMinimized(false)}>
+            <span className="text-xs font-bold text-white max-w-[120px] truncate">{otherPersonName}</span>
+            <span className="text-[10px] font-mono text-emerald-400 font-bold">
+              {callStatus === 'accepted' ? formatTimer(durationSec) : 'Calling...'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 pl-1.5 border-l border-zinc-800">
+            <button
+              onClick={toggleMute}
+              className={`p-2 rounded-full border transition-all cursor-pointer ${
+                isMuted ? 'bg-rose-950/80 border-rose-500 text-rose-400' : 'bg-zinc-800 border-zinc-700 text-white hover:bg-zinc-700'
+              }`}
+              title={isMuted ? 'Unmute' : 'Mute'}
+            >
+              {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={handleDeclineCall}
+              className="p-2 rounded-full bg-rose-600 hover:bg-rose-500 text-white transition-all cursor-pointer shadow-md active:scale-95"
+              title="End Call"
+            >
+              <PhoneOff className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => setIsMinimized(false)}
+              className="p-2 rounded-full bg-zinc-800 border border-zinc-700 text-emerald-400 hover:bg-zinc-700 transition-all cursor-pointer"
+              title="Expand Full Screen"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[120] bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-between p-6 sm:p-10 font-sans select-none text-white animate-in fade-in duration-300">
       {/* Hidden audio element for WebRTC remote audio playback */}
@@ -309,11 +411,21 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
       <div className="w-full max-w-sm flex items-center justify-between text-xs text-zinc-400 font-mono border-b border-zinc-800/80 pb-4">
         <div className="flex items-center gap-2">
           <Shield className="w-4 h-4 text-emerald-400" />
-          <span className="text-zinc-300 font-bold uppercase tracking-wider">Encrypted Voice Call</span>
+          <span className="text-zinc-300 font-bold uppercase tracking-wider">Encrypted Call</span>
         </div>
-        <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 px-2.5 py-1 rounded-full text-[10px] text-emerald-400 font-bold">
-          <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
-          <span>Real-Time P2P</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-full text-[11px] text-zinc-200 font-bold transition-all cursor-pointer active:scale-95"
+            title="Minimize Call to Dashboard"
+          >
+            <Minimize2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Minimize</span>
+          </button>
+          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 px-2 py-1 rounded-full text-[10px] text-emerald-400 font-bold">
+            <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
+            <span>P2P</span>
+          </div>
         </div>
       </div>
 

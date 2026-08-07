@@ -96,6 +96,76 @@ export const triggerOSNotification = (title: string, body: string) => {
   }
 };
 
+export const triggerOSCallNotification = (callerName: string) => {
+  try {
+    const name = callerName || 'Someone';
+    const title = '📞 INCOMING VOICE CALL';
+    const body = `${name} is calling you on TheRoom! Tap to view full screen UI.`;
+
+    // 1. Capacitor Native Android Calls High Priority Channel
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+      const LN = (window as any).Capacitor.Plugins.LocalNotifications;
+      if (LN.createChannel) {
+        LN.createChannel({
+          id: 'theroom_calls',
+          name: 'TheRoom Incoming Calls',
+          description: 'High priority incoming call alerts and full screen UI',
+          importance: 5,
+          visibility: 1,
+          vibration: true,
+          sound: 'call_ringtone.mp3'
+        }).catch(() => {});
+      }
+
+      LN.checkPermissions().then((res: any) => {
+        if (res?.display !== 'granted') {
+          return LN.requestPermissions();
+        }
+        return res;
+      }).then(() => {
+        LN.schedule({
+          notifications: [{
+            title,
+            body,
+            id: 999999,
+            schedule: { at: new Date(Date.now() + 50) },
+            channelId: 'theroom_calls',
+            actionTypeId: 'ANSWER_CALL',
+            extra: { fullScreen: true }
+          }]
+        }).catch((err: any) => console.warn('Capacitor Call Notification error:', err));
+      }).catch(() => {});
+    }
+
+    // 2. Service Worker High Priority Call Banner
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg && typeof reg.showNotification === 'function') {
+          reg.showNotification(title, {
+            body,
+            icon: '/logos/icon-192.png',
+            badge: '/logos/icon-192.png',
+            vibrate: [500, 250, 500, 250, 500, 250, 500],
+            tag: 'theroom-call-active',
+            renotify: true,
+            requireInteraction: true,
+            data: { url: '/' }
+          } as any).catch((err) => console.warn('SW Call showNotification error:', err));
+        }
+      }).catch(() => {});
+
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_CALL_NOTIFICATION',
+          callerName: name
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('Notice in triggerOSCallNotification:', err);
+  }
+};
+
 interface NotificationContextType {
   notifications: AppNotification[];
   unreadCount: number;
