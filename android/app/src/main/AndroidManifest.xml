@@ -63,5 +63,12 @@
             </intent-filter>
 
         </activity>
+
+        <!-- Voice Background Audio & Microphone Foreground Service -->
+        <service
+            android:name=".VoiceService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="microphone|phoneCall" />
     </application>
 </manifest>

@@ -3,6 +3,7 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User,
 import { doc, onSnapshot, updateDoc, collection, addDoc, getDoc } from 'firebase/firestore';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { App } from '@capacitor/app';
+import { startVoiceForegroundService, stopVoiceForegroundService } from '../../lib/voiceService';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { playGlitchNotificationSound, stopCallRingtone } from '../../lib/audio';
@@ -242,13 +243,14 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     };
   }, [callStatus]);
 
-  // Keep microphone and CPU awake during an active call
+  // Keep microphone, CPU, and native Android Foreground Service awake during an active call
   useEffect(() => {
     const keepScreenAwake = async () => {
       try {
         await KeepAwake.keepAwake();
+        await startVoiceForegroundService('TheRoom Voice Call', `Call active with ${otherPersonName} (Microphone enabled)`);
       } catch (e) {
-        console.log('KeepAwake error:', e);
+        console.log('KeepAwake / Foreground service error:', e);
       }
     };
 
@@ -268,11 +270,12 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
 
     return () => {
       KeepAwake.allowSleep().catch(() => {});
+      stopVoiceForegroundService().catch(() => {});
       if (appListener) {
         appListener.then((l: any) => l?.remove?.()).catch(() => {});
       }
     };
-  }, []);
+  }, [otherPersonName]);
 
   // Call duration timer when accepted
   useEffect(() => {

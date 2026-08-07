@@ -3,6 +3,7 @@ import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Users, Activity, Shield, Minim
 import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, collection, addDoc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { App } from '@capacitor/app';
+import { startVoiceForegroundService, stopVoiceForegroundService } from '../../lib/voiceService';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -56,13 +57,14 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // Keep screen, CPU and audio active during group voice call
+  // Keep screen, CPU, microphone and native Android Foreground Service active during group voice call
   useEffect(() => {
     const keepScreenAwake = async () => {
       try {
         await KeepAwake.keepAwake();
+        await startVoiceForegroundService('TheRoom Group Call', 'Group call active (Microphone enabled)');
       } catch (e) {
-        console.log('Group KeepAwake error:', e);
+        console.log('Group KeepAwake / Foreground service error:', e);
       }
     };
 
@@ -81,6 +83,7 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
 
     return () => {
       KeepAwake.allowSleep().catch(() => {});
+      stopVoiceForegroundService().catch(() => {});
       if (appListener) {
         appListener.then((l: any) => l?.remove?.()).catch(() => {});
       }
