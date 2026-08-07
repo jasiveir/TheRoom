@@ -6,35 +6,25 @@ export function isApkMode(): boolean {
 
   // 1. Explicit search parameters or localStorage override
   const searchParams = new URLSearchParams(window.location.search);
-  if (searchParams.get('mode') === 'app' || searchParams.get('isApk') === 'true' || searchParams.get('platform') === 'android') return true;
+  if (searchParams.get('mode') === 'app' || searchParams.get('isApk') === 'true') return true;
   if (localStorage.getItem('is_apk_mode') === 'true') return true;
 
   // 2. Capacitor / Cordova / Native Android Bridges
   const w = window as any;
-  if (w.Capacitor?.isNativePlatform?.()) return true;
-  if (w.Capacitor?.getPlatform?.() === 'android' || w.Capacitor?.getPlatform?.() === 'ios') return true;
-  if (w.Capacitor) return true;
+  if (w.Capacitor?.isNativePlatform?.() === true) return true;
+  const platform = w.Capacitor?.getPlatform?.();
+  if (platform === 'android' || platform === 'ios') return true;
   if (w.cordova || w.PhoneGap) return true;
   if (w.isNativeApk) return true;
   if (w.AndroidInterface || w.Android) return true;
 
-  // 3. Native App protocol or hostname (Capacitor/Cordova local app server)
+  // 3. Native App protocol (Capacitor/Cordova local app server)
   const proto = window.location.protocol;
   if (proto === 'capacitor:' || proto === 'file:' || proto === 'ionic:' || proto === 'app:') return true;
 
-  // 4. Standalone / PWA / Installed Web App display modes
-  if ((window.navigator as any).standalone === true) return true;
-  if (window.matchMedia) {
-    if (window.matchMedia('(display-mode: standalone)').matches) return true;
-    if (window.matchMedia('(display-mode: minimal-ui)').matches) return true;
-    if (window.matchMedia('(display-mode: fullscreen)').matches) return true;
-  }
-
-  // 5. WebView UserAgent detection (Android WebView / APK wrapper)
+  // 4. Standalone WebView UserAgent detection for custom native APK wrappers
   const ua = (navigator.userAgent || navigator.vendor || w.opera || '').toLowerCase();
-  if (ua.includes('theroom') || ua.includes('capacitor') || ua.includes('cordova') || ua.includes('android-apk')) return true;
-  // Android WebView usually includes 'wv' or 'version/4.0' or 'x-requested-with'
-  if (ua.includes('android') && (ua.includes('wv') || ua.includes('fbav') || ua.includes('line') || ua.includes('version/4.0'))) return true;
+  if (ua.includes('capacitor') || ua.includes('cordova') || ua.includes('android-apk')) return true;
 
   return false;
 }
