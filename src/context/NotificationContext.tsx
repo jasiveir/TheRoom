@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { AppNotification } from '../types';
@@ -270,6 +271,44 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       return;
     }
 
+    // Register Capacitor Push Notifications & Sync FCM token to Firestore user document
+    let regListener: Promise<any> | null = null;
+    let pushReceivedListener: Promise<any> | null = null;
+
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      PushNotifications.checkPermissions().then(async (status) => {
+        if (status.receive === 'granted') {
+          await PushNotifications.register().catch(() => {});
+        } else {
+          const req = await PushNotifications.requestPermissions().catch(() => ({ receive: 'denied' }));
+          if (req.receive === 'granted') {
+            await PushNotifications.register().catch(() => {});
+          }
+        }
+      }).catch(() => {});
+
+      regListener = PushNotifications.addListener('registration', (token) => {
+        console.log('FCM Token for closed app ringing:', token.value);
+        if (userProfile?.uid && token.value) {
+          updateDoc(doc(db, 'users', userProfile.uid), {
+            fcmToken: token.value,
+            lastFcmUpdate: Date.now()
+          }).catch((err) => console.warn('Save FCM token error:', err));
+        }
+      });
+
+      pushReceivedListener = PushNotifications.addListener('pushNotificationReceived', (notification) => {
+        console.log('Push notification received:', notification);
+        const title = notification.title || 'TheRoom Signal';
+        const body = notification.body || 'Incoming call/message notification';
+        if (title.toLowerCase().includes('call')) {
+          triggerOSCallNotification(notification.data?.callerName || 'Incoming Call');
+        } else {
+          triggerOSNotification(title, body);
+        }
+      });
+    }
+
     const q = query(
       collection(db, 'notifications'),
       where('userId', '==', userProfile.uid)
@@ -316,7 +355,11 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.warn('Notifications snapshot warning:', err);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (regListener) regListener.then((l) => l?.remove?.()).catch(() => {});
+      if (pushReceivedListener) pushReceivedListener.then((l) => l?.remove?.()).catch(() => {});
+    };
   }, [userProfile?.uid, soundEnabled]);
 
   // Filter out new_message notifications older than 20 seconds

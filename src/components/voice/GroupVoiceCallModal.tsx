@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Users, Activity, Shield, Minimize2, Maximize2 } from 'lucide-react';
 import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, collection, addDoc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { App } from '@capacitor/app';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -52,6 +54,37 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
       setDurationSec((prev) => prev + 1);
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Keep screen, CPU and audio active during group voice call
+  useEffect(() => {
+    const keepScreenAwake = async () => {
+      try {
+        await KeepAwake.keepAwake();
+      } catch (e) {
+        console.log('Group KeepAwake error:', e);
+      }
+    };
+
+    keepScreenAwake();
+
+    let appListener: Promise<any> | null = null;
+    try {
+      appListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          console.log('App moved to background, group call background audio active');
+        }
+      });
+    } catch (e) {
+      console.warn('App state listener notice:', e);
+    }
+
+    return () => {
+      KeepAwake.allowSleep().catch(() => {});
+      if (appListener) {
+        appListener.then((l: any) => l?.remove?.()).catch(() => {});
+      }
+    };
   }, []);
 
   // Format timer

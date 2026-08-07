@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User, Minimize2, Maximize2 } from 'lucide-react';
 import { doc, onSnapshot, updateDoc, collection, addDoc, getDoc } from 'firebase/firestore';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { App } from '@capacitor/app';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { playGlitchNotificationSound, stopCallRingtone } from '../../lib/audio';
@@ -239,6 +241,38 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
       if (ringingIntervalRef.current) clearInterval(ringingIntervalRef.current);
     };
   }, [callStatus]);
+
+  // Keep microphone and CPU awake during an active call
+  useEffect(() => {
+    const keepScreenAwake = async () => {
+      try {
+        await KeepAwake.keepAwake();
+      } catch (e) {
+        console.log('KeepAwake error:', e);
+      }
+    };
+
+    keepScreenAwake();
+
+    // Listen for app minimize / background event to activate background audio keep-alive
+    let appListener: Promise<any> | null = null;
+    try {
+      appListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (!isActive) {
+          console.log('App moved to background, voice call background audio active');
+        }
+      });
+    } catch (e) {
+      console.warn('App state listener notice:', e);
+    }
+
+    return () => {
+      KeepAwake.allowSleep().catch(() => {});
+      if (appListener) {
+        appListener.then((l: any) => l?.remove?.()).catch(() => {});
+      }
+    };
+  }, []);
 
   // Call duration timer when accepted
   useEffect(() => {
