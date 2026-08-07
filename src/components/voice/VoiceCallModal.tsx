@@ -32,6 +32,8 @@ const ICE_SERVERS = {
 export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall }) => {
   const { userProfile } = useAuth();
   const isCaller = userProfile?.uid === call.callerId;
+  const otherPersonName = isCaller ? call.receiverName : call.callerName;
+  const otherPersonAvatar = isCaller ? call.receiverAvatar : call.callerAvatar;
 
   const [callStatus, setCallStatus] = useState<'calling' | 'accepted' | 'declined' | 'ended'>(call.status);
   const [isMuted, setIsMuted] = useState(false);
@@ -245,11 +247,31 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
       timer = setInterval(() => {
         setDurationSec((prev) => prev + 1);
       }, 1000);
+
+      // Register MediaSession for Android system background audio keep-alive
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = new MediaMetadata({
+            title: `Encrypted Voice Call with ${otherPersonName}`,
+            artist: 'TheRoom Signal',
+            album: 'Ongoing Active Call',
+            artwork: [{ src: '/logos/icon-192.png', sizes: '192x192', type: 'image/png' }]
+          });
+          navigator.mediaSession.setActionHandler('hangup' as any, () => handleDeclineCall());
+        } catch (e) {
+          console.warn('MediaSession setup:', e);
+        }
+      }
     }
     return () => {
       if (timer) clearInterval(timer);
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = null;
+        } catch (_) {}
+      }
     };
-  }, [callStatus]);
+  }, [callStatus, otherPersonName]);
 
   const handleDeclineCall = async () => {
     setCallStatus('declined');
@@ -340,9 +362,6 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     const secs = totalSeconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const otherPersonName = isCaller ? call.receiverName : call.callerName;
-  const otherPersonAvatar = isCaller ? call.receiverAvatar : call.callerAvatar;
 
   // Minimized Widget View
   if (isMinimized) {

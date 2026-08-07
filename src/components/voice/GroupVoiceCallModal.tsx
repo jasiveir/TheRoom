@@ -278,6 +278,36 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
 
   }, [participants, chatId, userProfile?.uid, localStream]);
 
+  // Active Call timer & MediaSession Keep-Alive
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setDurationSec((prev) => prev + 1);
+    }, 1000);
+
+    if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: `Group Voice Call - ${groupName}`,
+          artist: 'TheRoom Signal',
+          album: `${participants.length} Participants active`,
+          artwork: [{ src: '/logos/icon-192.png', sizes: '192x192', type: 'image/png' }]
+        });
+        navigator.mediaSession.setActionHandler('hangup' as any, () => handleLeaveCall());
+      } catch (e) {
+        console.warn('Group MediaSession setup:', e);
+      }
+    }
+
+    return () => {
+      clearInterval(timer);
+      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.metadata = null;
+        } catch (_) {}
+      }
+    };
+  }, [groupName, participants.length]);
+
   // Toggle local mute
   const handleToggleMute = async () => {
     if (localStream) {
