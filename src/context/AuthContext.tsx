@@ -752,27 +752,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        // Fallback to @capacitor-firebase/authentication if GoogleAuth native didn't produce credential
-        if (!cred) {
-          try {
-            const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
-            const result = await FirebaseAuthentication.signInWithGoogle();
-            const idToken = result.credential?.idToken;
-            if (idToken) {
-              const credential = GoogleAuthProvider.credential(idToken);
-              cred = await signInWithCredential(auth, credential);
-            }
-          } catch (fbAuthErr: any) {
-            console.warn('Capacitor Firebase Auth native sign-in notice:', fbAuthErr);
-            if (
-              fbAuthErr?.message?.includes('cancel') ||
-              fbAuthErr?.code === '12501' ||
-              fbAuthErr?.code === '10'
-            ) {
-              throw new Error('Google Sign-In account selection was cancelled.');
-            }
-          }
-        }
+        // Native GoogleAuth plugin handles Google Sign-In on Android
       }
 
       // 2. Web / Browser flow
