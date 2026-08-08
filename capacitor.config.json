@@ -11,9 +11,7 @@
       "permissions": ["camera"]
     },
     "LocalNotifications": {
-      "smallIcon": "ic_stat_icon_config_sample",
-      "iconColor": "#00FF41",
-      "sound": "glitch_alert.wav"
+      "iconColor": "#00FF41"
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]
@@ -21,6 +19,7 @@
     "GoogleAuth": {
       "scopes": ["profile", "email"],
       "serverClientId": "899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com",
+      "clientId": "899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com",
       "forceCodeForRefreshToken": true
     }
   }

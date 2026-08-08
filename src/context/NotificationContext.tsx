@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, doc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
 import { PushNotifications } from '@capacitor/push-notifications';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { AppNotification } from '../types';
@@ -11,22 +12,9 @@ export const triggerOSNotification = (title: string, body: string) => {
     const cleanTitle = title || 'TheRoom Signal';
     const cleanBody = body || 'New encrypted message received';
 
-    // 1. Capacitor LocalNotifications (Android APK Native System Drawer)
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
-      const LocalNotifications = (window as any).Capacitor.Plugins.LocalNotifications;
-      if (LocalNotifications.createChannel) {
-        LocalNotifications.createChannel({
-          id: 'theroom_messages',
-          name: 'TheRoom Messages',
-          description: 'Encrypted message alerts',
-          importance: 5,
-          visibility: 1,
-          vibration: true,
-          sound: 'glitch_alert.wav'
-        }).catch(() => {});
-      }
-
-      LocalNotifications.checkPermissions().then((res: any) => {
+    // 1. Capacitor LocalNotifications (Android APK Native System Drawer & Status Bar)
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      LocalNotifications.checkPermissions().then((res) => {
         if (res?.display !== 'granted') {
           return LocalNotifications.requestPermissions();
         }
@@ -37,12 +25,12 @@ export const triggerOSNotification = (title: string, body: string) => {
             title: cleanTitle,
             body: cleanBody,
             id: Math.floor(Math.random() * 1000000),
-            schedule: { at: new Date(Date.now() + 100) },
+            schedule: { at: new Date(Date.now() + 50) },
             channelId: 'theroom_messages',
             actionTypeId: 'OPEN_APP'
           }]
-        }).catch((err: any) => console.warn('Capacitor LocalNotification schedule error:', err));
-      }).catch(() => {});
+        }).catch((err) => console.warn('Capacitor LocalNotification schedule error:', err));
+      }).catch((err) => console.warn('LocalNotifications permission notice:', err));
     }
 
     // 2. Service Worker Notification (Android OS Notification Drawer & OS Desktop Notifications)
@@ -89,7 +77,7 @@ export const triggerOSNotification = (title: string, body: string) => {
           notif.close();
         };
       } catch (e) {
-        // Ignored if browser requires Service Worker (Android Chrome)
+        // Ignored if browser requires Service Worker
       }
     }
   } catch (err) {
@@ -104,27 +92,14 @@ export const triggerOSCallNotification = (callerName: string) => {
     const body = `${name} is calling you on TheRoom! Tap to view full screen UI.`;
 
     // 1. Capacitor Native Android Calls High Priority Channel
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
-      const LN = (window as any).Capacitor.Plugins.LocalNotifications;
-      if (LN.createChannel) {
-        LN.createChannel({
-          id: 'theroom_calls',
-          name: 'TheRoom Incoming Calls',
-          description: 'High priority incoming call alerts and full screen UI',
-          importance: 5,
-          visibility: 1,
-          vibration: true,
-          sound: 'call_ringtone.mp3'
-        }).catch(() => {});
-      }
-
-      LN.checkPermissions().then((res: any) => {
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+      LocalNotifications.checkPermissions().then((res) => {
         if (res?.display !== 'granted') {
-          return LN.requestPermissions();
+          return LocalNotifications.requestPermissions();
         }
         return res;
       }).then(() => {
-        LN.schedule({
+        LocalNotifications.schedule({
           notifications: [{
             title,
             body,
@@ -134,8 +109,8 @@ export const triggerOSCallNotification = (callerName: string) => {
             actionTypeId: 'ANSWER_CALL',
             extra: { fullScreen: true }
           }]
-        }).catch((err: any) => console.warn('Capacitor Call Notification error:', err));
-      }).catch(() => {});
+        }).catch((err) => console.warn('Capacitor Call Notification error:', err));
+      }).catch((err) => console.warn('Call LocalNotifications notice:', err));
     }
 
     // 2. Service Worker High Priority Call Banner
@@ -229,27 +204,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     if (typeof window !== 'undefined') {
       // 1. Capacitor Native Android Permissions & Channel Setup
-      if ((window as any).Capacitor?.Plugins?.LocalNotifications) {
-        const LN = (window as any).Capacitor.Plugins.LocalNotifications;
-        LN.checkPermissions().then((res: any) => {
+      if ((window as any).Capacitor) {
+        LocalNotifications.checkPermissions().then((res) => {
           if (res?.display !== 'granted') {
-            LN.requestPermissions().catch(() => {});
+            LocalNotifications.requestPermissions().catch(() => {});
           }
         }).catch(() => {
-          LN.requestPermissions().catch(() => {});
+          LocalNotifications.requestPermissions().catch(() => {});
         });
 
-        if (LN.createChannel) {
-          LN.createChannel({
-            id: 'theroom_messages',
-            name: 'TheRoom Messages',
-            description: 'Encrypted message alerts',
-            importance: 5,
-            visibility: 1,
-            vibration: true,
-            sound: 'glitch_alert.wav'
-          }).catch(() => {});
-        }
+        LocalNotifications.createChannel({
+          id: 'theroom_messages',
+          name: 'TheRoom Messages',
+          description: 'Encrypted message alerts',
+          importance: 5,
+          visibility: 1,
+          vibration: true
+        }).catch(() => {});
+
+        LocalNotifications.createChannel({
+          id: 'theroom_calls',
+          name: 'TheRoom Incoming Calls',
+          description: 'High priority incoming call alerts and full screen UI',
+          importance: 5,
+          visibility: 1,
+          vibration: true
+        }).catch(() => {});
       }
 
       // 2. Browser & Android WebView Notification Permission Request on Touch

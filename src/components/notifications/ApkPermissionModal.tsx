@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Volume2, Check, X, ShieldCheck, Radio, Camera, Cpu } from 'lucide-react';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
 import { playGlitchNotificationSound } from '../../lib/audio';
 import { isApkMode } from '../../lib/deviceUtils';
 
@@ -53,31 +55,35 @@ export const ApkPermissionModal: React.FC<ApkPermissionModalProps> = ({ isOpen, 
   };
 
   const handleRequestNotifications = async () => {
-    // 1. Request Capacitor Native Android Local Notifications Permission & Create Channel
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.LocalNotifications) {
+    // 1. Request Capacitor Native Android Local Notifications Permission & Create Channels
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
       try {
-        const LN = (window as any).Capacitor.Plugins.LocalNotifications;
-        await LN.requestPermissions();
-        if (LN.createChannel) {
-          await LN.createChannel({
-            id: 'theroom_messages',
-            name: 'TheRoom Messages',
-            description: 'Encrypted message alerts',
-            importance: 5,
-            visibility: 1,
-            vibration: true,
-            sound: 'glitch_alert.wav'
-          }).catch(() => {});
-        }
+        await LocalNotifications.requestPermissions();
+        await LocalNotifications.createChannel({
+          id: 'theroom_messages',
+          name: 'TheRoom Messages',
+          description: 'Encrypted message alerts',
+          importance: 5,
+          visibility: 1,
+          vibration: true
+        }).catch(() => {});
+        await LocalNotifications.createChannel({
+          id: 'theroom_calls',
+          name: 'TheRoom Incoming Calls',
+          description: 'High priority incoming call alerts and full screen UI',
+          importance: 5,
+          visibility: 1,
+          vibration: true
+        }).catch(() => {});
       } catch (e) {
         console.warn('Capacitor LocalNotifications permission error:', e);
       }
     }
 
-    // 2. Request Capacitor Push Notifications Permission if available
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins?.PushNotifications) {
+    // 2. Request Capacitor Push Notifications Permission
+    if (typeof window !== 'undefined' && (window as any).Capacitor) {
       try {
-        await (window as any).Capacitor.Plugins.PushNotifications.requestPermissions();
+        await PushNotifications.requestPermissions();
       } catch (e) {
         console.warn('Capacitor PushNotifications permission error:', e);
       }

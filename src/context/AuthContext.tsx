@@ -740,19 +740,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (idToken) {
             const credential = GoogleAuthProvider.credential(idToken);
             cred = await signInWithCredential(auth, credential);
+          } else {
+            console.warn('GoogleAuth.signIn did not return idToken:', googleUser);
           }
         } catch (googleAuthErr: any) {
           console.warn('Native GoogleAuth plugin notice:', googleAuthErr);
-          if (
-            googleAuthErr?.message?.includes('cancel') ||
-            googleAuthErr?.code === '12501' ||
-            googleAuthErr?.code === '10'
-          ) {
+          const errCode = String(googleAuthErr?.code || googleAuthErr?.status || '');
+          const errMsg = String(googleAuthErr?.message || googleAuthErr || '');
+
+          if (errCode === '10' || errMsg.includes('10')) {
+            throw new Error(
+              'Google Sign-In Developer Error (Code 10). Please ensure your APK SHA-1 fingerprint and Web Client ID are registered in Firebase Console -> Project Settings -> Android Apps.'
+            );
+          }
+          if (errCode === '12501' || errMsg.toLowerCase().includes('cancel')) {
             throw new Error('Google Sign-In account selection was cancelled.');
           }
+          throw new Error(`Google Sign-In error (${errCode || 'native'}): ${errMsg || 'Unable to complete sign in.'}`);
         }
-
-        // Native GoogleAuth plugin handles Google Sign-In on Android
       }
 
       // 2. Web / Browser flow
