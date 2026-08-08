@@ -729,7 +729,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
           await GoogleAuth.initialize({
-            clientId: '243866788757-6tak9ebm0iks7sf7i98l6lepcivkol8v.apps.googleusercontent.com',
+            clientId: '1099179138333-7sdq6aedt75qsupasqnatb4hltt2jmgn.apps.googleusercontent.com',
             scopes: ['profile', 'email'],
             grantOfflineAccess: true,
           }).catch(() => {});
