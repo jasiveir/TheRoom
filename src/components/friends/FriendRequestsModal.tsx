@@ -37,7 +37,7 @@ export const FriendRequestsModal: React.FC<FriendRequestsModalProps> = ({ isOpen
       setIncomingRequests(list);
       setLoading(false);
     }, (err) => {
-      console.error('Error fetching friend requests:', err);
+      console.warn('Friend requests snapshot notice:', err);
       setLoading(false);
     });
 

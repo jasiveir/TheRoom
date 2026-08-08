@@ -102,7 +102,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       if (!snap.exists()) {
         handleClose();
       }
-    });
+    }, (err) => console.warn('Chat doc listener notice:', err));
     return () => unsub();
   }, [chat.id]);
 
@@ -168,7 +168,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         if (uDoc.exists()) {
           setOtherUser({ uid: uDoc.id, ...uDoc.data() } as UserProfile);
         }
-      });
+      }, (err) => console.warn('Other user snapshot notice:', err));
       return () => unsubOtherUser();
     }
   }, [chat.id, otherUserId, userProfile?.uid]);
@@ -202,7 +202,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           markMessageRead(chat.id, msg.id, userProfile.uid);
         }
       });
-    });
+    }, (err) => console.warn('Messages snapshot notice:', err));
 
     return () => unsubscribe();
   }, [chat.id, userProfile?.uid]);

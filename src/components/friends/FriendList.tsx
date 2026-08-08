@@ -125,7 +125,7 @@ export const FriendList: React.FC<FriendListProps> = ({
       setFriends(list);
       setLoading(false);
     }, (err) => {
-      console.error('Error fetching friend list:', err);
+      console.warn('Friend list snapshot notice:', err);
       setLoading(false);
     });
 

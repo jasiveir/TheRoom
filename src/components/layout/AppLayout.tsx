@@ -78,6 +78,8 @@ export const AppLayout: React.FC = () => {
 
     const unsubscribe = onSnapshot(q, (snap) => {
       setPendingRequestsCount(snap.size);
+    }, (err) => {
+      console.warn('Pending requests listener notice:', err);
     });
 
     return () => unsubscribe();

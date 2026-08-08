@@ -71,7 +71,7 @@ export const ChatsList: React.FC<ChatsListProps> = ({
       setChats(verifiedList);
       setLoading(false);
     }, (err) => {
-      console.error('Error fetching chats:', err);
+      console.warn('Chats snapshot notice:', err);
       setLoading(false);
     });
 

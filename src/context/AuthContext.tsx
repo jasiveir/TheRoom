@@ -174,10 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeUnsubscribeProfileRef.current = null;
       }
 
-      const storedUid = localStorage.getItem(STORAGE_KEY);
-      const targetUid = user?.uid || storedUid;
-
-      if (targetUid) {
+      if (user) {
+        const targetUid = user.uid;
         const userRef = doc(db, 'users', targetUid);
         const unsub = onSnapshot(userRef, async (docSnap) => {
           if (docSnap.exists()) {
@@ -185,7 +183,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             // Check account status
             if (data.accountStatus === 'blocked') {
-              if (user) await firebaseSignOut(auth).catch(() => {});
+              await firebaseSignOut(auth).catch(() => {});
               localStorage.removeItem(STORAGE_KEY);
               sessionStorage.clear();
               setUserProfile(null);
@@ -194,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               return;
             }
             if (data.accountStatus === 'deactivated') {
-              if (user) await firebaseSignOut(auth).catch(() => {});
+              await firebaseSignOut(auth).catch(() => {});
               localStorage.removeItem(STORAGE_KEY);
               sessionStorage.clear();
               setUserProfile(null);
@@ -217,38 +215,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem(STORAGE_KEY, targetUid);
           } else {
             // Auto-heal: Ensure user profile document exists in Firestore
-            if (user) {
-              try {
-                const friendCode = await generateUniqueFriendCode();
-                const isMainAdmin = user.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
-                const fallbackProfile: UserProfile = {
-                  uid: user.uid,
-                  fullName: user.displayName || user.email?.split('@')[0] || 'User',
-                  username: (user.email?.split('@')[0] || `user_${user.uid.slice(0, 5)}`).toLowerCase().replace(/[^a-z0-9]/g, ''),
-                  email: user.email?.toLowerCase() || '',
-                  friendCode: friendCode,
-                  bio: 'Hello! I am using TheRoom.',
-                  photoURL: user.photoURL || '',
-                  status: 'online',
-                  lastSeen: serverTimestamp(),
-                  friendsCount: 0,
-                  accountStatus: 'active',
-                  isAdmin: isMainAdmin,
-                  isMainAdmin: isMainAdmin,
-                  isModerator: false,
-                  createdAt: serverTimestamp(),
-                  updatedAt: serverTimestamp(),
-                };
-                await setDoc(userRef, fallbackProfile, { merge: true });
-                setUserProfile(fallbackProfile);
-                localStorage.setItem(STORAGE_KEY, user.uid);
-              } catch (fallbackErr) {
-                console.warn('Fallback profile creation notice:', fallbackErr);
-                localStorage.removeItem(STORAGE_KEY);
-                sessionStorage.clear();
-                setUserProfile(null);
-              }
-            } else {
+            try {
+              const friendCode = await generateUniqueFriendCode();
+              const isMainAdmin = user.email?.toLowerCase() === PREDEFINED_ADMIN_EMAIL.toLowerCase();
+              const fallbackProfile: UserProfile = {
+                uid: user.uid,
+                fullName: user.displayName || user.email?.split('@')[0] || 'User',
+                username: (user.email?.split('@')[0] || `user_${user.uid.slice(0, 5)}`).toLowerCase().replace(/[^a-z0-9]/g, ''),
+                email: user.email?.toLowerCase() || '',
+                friendCode: friendCode,
+                bio: 'Hello! I am using TheRoom.',
+                photoURL: user.photoURL || '',
+                status: 'online',
+                lastSeen: serverTimestamp(),
+                friendsCount: 0,
+                accountStatus: 'active',
+                isAdmin: isMainAdmin,
+                isMainAdmin: isMainAdmin,
+                isModerator: false,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+              await setDoc(userRef, fallbackProfile, { merge: true });
+              setUserProfile(fallbackProfile);
+              localStorage.setItem(STORAGE_KEY, user.uid);
+            } catch (fallbackErr) {
+              console.warn('Fallback profile creation notice:', fallbackErr);
               localStorage.removeItem(STORAGE_KEY);
               sessionStorage.clear();
               setUserProfile(null);
@@ -256,7 +248,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           setLoading(false);
         }, (err) => {
-          console.error('Profile snapshot error:', err);
+          console.warn('Profile snapshot notice:', err);
           setLoading(false);
         });
 

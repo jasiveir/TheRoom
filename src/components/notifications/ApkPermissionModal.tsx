@@ -81,7 +81,7 @@ export const ApkPermissionModal: React.FC<ApkPermissionModalProps> = ({ isOpen, 
     }
 
     // 2. Request Capacitor Push Notifications Permission
-    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
       try {
         await PushNotifications.requestPermissions();
       } catch (e) {

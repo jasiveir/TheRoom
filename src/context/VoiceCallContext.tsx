@@ -80,7 +80,7 @@ export const VoiceCallProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } else {
         stopCallRingtone();
       }
-    });
+    }, (err) => console.warn('Calls snapshot notice:', err));
 
     return () => {
       unsub();

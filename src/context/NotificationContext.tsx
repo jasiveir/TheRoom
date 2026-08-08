@@ -255,7 +255,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     let regListener: Promise<any> | null = null;
     let pushReceivedListener: Promise<any> | null = null;
 
-    if (typeof window !== 'undefined' && (window as any).Capacitor) {
+    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
       PushNotifications.checkPermissions().then(async (status) => {
         if (status.receive === 'granted') {
           await PushNotifications.register().catch(() => {});

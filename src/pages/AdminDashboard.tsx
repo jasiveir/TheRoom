@@ -100,7 +100,7 @@ export const AdminDashboard: React.FC = () => {
       if (snap.exists()) {
         setAutoApproveResets(!!snap.data().autoApprove);
       }
-    });
+    }, (err) => console.warn('Reset key config notice:', err));
     return () => unsubscribeCfg();
   }, []);
 

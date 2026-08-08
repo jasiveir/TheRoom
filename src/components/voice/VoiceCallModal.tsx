@@ -102,7 +102,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
           console.error('Error setting remote answer description:', err);
         }
       }
-    });
+    }, (err) => console.warn('Call doc snapshot notice:', err));
 
     return () => unsub();
   }, [call.id, isCaller]);
