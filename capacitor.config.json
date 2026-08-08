@@ -18,8 +18,8 @@
     },
     "GoogleAuth": {
       "scopes": ["profile", "email"],
-      "serverClientId": "899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com",
-      "clientId": "899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com",
+      "serverClientId": "243866788757-6tak9ebm0iks7sf7i98l6lepcivkol8v.apps.googleusercontent.com",
+      "clientId": "243866788757-6tak9ebm0iks7sf7i98l6lepcivkol8v.apps.googleusercontent.com",
       "forceCodeForRefreshToken": true
     }
   }
