@@ -723,52 +723,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         window.location.protocol === 'file:'
       );
 
-      // 1. Try Native Google Auth plugin if running in Capacitor Native App
+      // 1. Native Google Sign-In for Android App (No external browser!)
       if (isCapacitorNative) {
+        // Try @codetrix-studio/capacitor-google-auth native overlay dialog
         try {
-          let googleAuthPlugin: any = (window as any).Capacitor?.Plugins?.GoogleAuth;
-          if (!googleAuthPlugin) {
-            const pluginPkg = '@codetrix-studio/capacitor-google-auth';
-            const mod = await import(/* @vite-ignore */ pluginPkg).catch(() => null);
-            if (mod?.GoogleAuth) {
-              googleAuthPlugin = mod.GoogleAuth;
-            }
+          const { GoogleAuth } = await import('@codetrix-studio/capacitor-google-auth');
+          await GoogleAuth.initialize({
+            clientId: '899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com',
+            scopes: ['profile', 'email'],
+            grantOfflineAccess: true,
+          }).catch(() => {});
+
+          const googleUser: any = await GoogleAuth.signIn();
+          const idToken = googleUser?.authentication?.idToken || googleUser?.idToken;
+
+          if (idToken) {
+            const credential = GoogleAuthProvider.credential(idToken);
+            cred = await signInWithCredential(auth, credential);
           }
+        } catch (googleAuthErr: any) {
+          console.warn('Native GoogleAuth plugin notice:', googleAuthErr);
+          if (
+            googleAuthErr?.message?.includes('cancel') ||
+            googleAuthErr?.code === '12501' ||
+            googleAuthErr?.code === '10'
+          ) {
+            throw new Error('Google Sign-In account selection was cancelled.');
+          }
+        }
 
-          if (googleAuthPlugin) {
-            await googleAuthPlugin.initialize?.({
-              scopes: ['profile', 'email'],
-              grantOfflineAccess: true,
-            }).catch(() => {});
-
-            const googleUser = await googleAuthPlugin.signIn();
-            const idToken = googleUser?.authentication?.idToken || googleUser?.idToken;
-
+        // Fallback to @capacitor-firebase/authentication if GoogleAuth native didn't produce credential
+        if (!cred) {
+          try {
+            const { FirebaseAuthentication } = await import('@capacitor-firebase/authentication');
+            const result = await FirebaseAuthentication.signInWithGoogle();
+            const idToken = result.credential?.idToken;
             if (idToken) {
               const credential = GoogleAuthProvider.credential(idToken);
               cred = await signInWithCredential(auth, credential);
             }
-          }
-        } catch (nativeErr: any) {
-          console.warn('Native Google Auth plugin notice:', nativeErr);
-          if (nativeErr?.message?.includes('cancel') || nativeErr?.code === '12501' || nativeErr?.code === '10') {
-            throw new Error('Google Sign-In account selection was cancelled.');
+          } catch (fbAuthErr: any) {
+            console.warn('Capacitor Firebase Auth native sign-in notice:', fbAuthErr);
+            if (
+              fbAuthErr?.message?.includes('cancel') ||
+              fbAuthErr?.code === '12501' ||
+              fbAuthErr?.code === '10'
+            ) {
+              throw new Error('Google Sign-In account selection was cancelled.');
+            }
           }
         }
       }
 
-      // 2. Web / Browser / Fallback flow
-      if (!cred) {
-        // Detect strict embedded WebView on Android APKs where Google blocks OAuth popups
-        const isStrictAndroidWebView = typeof window !== 'undefined' && (
-          isCapacitorNative ||
-          (isApkMode() && /wv|WebView|Android.*Version\/[0-9]/i.test(navigator.userAgent))
-        );
-
-        if (isStrictAndroidWebView && !(window as any).Capacitor?.Plugins?.GoogleAuth) {
-          throw new Error('Google Sign-In via browser popup is restricted inside Android app WebViews by Google policy. Please sign in using Email & Password or Guest Mode on this APK version, or open https://theroom-box.web.app in your mobile browser.');
-        }
-
+      // 2. Web / Browser flow
+      if (!cred && !isCapacitorNative) {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({
           prompt: 'select_account'
@@ -783,11 +791,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           cred = await Promise.race([popupPromise, timeoutPromise]) as any;
         } catch (popupErr: any) {
-          // Fallback to signInWithRedirect if popup was blocked on web browsers
           if (
-            (popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user') &&
-            !isStrictAndroidWebView &&
-            typeof window !== 'undefined'
+            popupErr?.code === 'auth/popup-blocked' || popupErr?.code === 'auth/popup-closed-by-user'
           ) {
             console.log('Popup blocked or closed, trying redirect flow for web browser...');
             await signInWithRedirect(auth, provider);

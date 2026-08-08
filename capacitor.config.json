@@ -17,6 +17,11 @@
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]
+    },
+    "GoogleAuth": {
+      "scopes": ["profile", "email"],
+      "serverClientId": "899211025200-lbhhcr3wdwzr4gc4q6tqhe.apps.googleusercontent.com",
+      "forceCodeForRefreshToken": true
     }
   }
 }

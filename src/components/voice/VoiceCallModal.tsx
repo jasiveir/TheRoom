@@ -3,7 +3,7 @@ import { Phone, PhoneOff, Mic, MicOff, Volume2, VolumeX, Shield, Activity, User,
 import { doc, onSnapshot, updateDoc, collection, addDoc, getDoc } from 'firebase/firestore';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { App } from '@capacitor/app';
-import { startVoiceForegroundService, stopVoiceForegroundService } from '../../lib/voiceService';
+import { startVoiceForegroundService, stopVoiceForegroundService, onEndCallRequested } from '../../lib/voiceService';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 import { playGlitchNotificationSound, stopCallRingtone } from '../../lib/audio';
@@ -243,12 +243,24 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     };
   }, [callStatus]);
 
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const callStartTimeRef = useRef<number | null>(null);
+
   // Keep microphone, CPU, and native Android Foreground Service awake during an active call
   useEffect(() => {
+    const startTime = callStartTimeRef.current || Date.now();
+    if (!callStartTimeRef.current && callStatus === 'accepted') {
+      callStartTimeRef.current = startTime;
+    }
+
     const keepScreenAwake = async () => {
       try {
         await KeepAwake.keepAwake();
-        await startVoiceForegroundService('TheRoom Voice Call', `Call active with ${otherPersonName} (Microphone enabled)`);
+        await startVoiceForegroundService(
+          'TheRoom — Voice Call',
+          `Call active with ${otherPersonName}`,
+          callStartTimeRef.current || Date.now()
+        );
       } catch (e) {
         console.log('KeepAwake / Foreground service error:', e);
       }
@@ -256,12 +268,49 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
 
     keepScreenAwake();
 
+    // Listen for native "End Call" notification action press
+    let nativeEndSub: any = null;
+    onEndCallRequested(() => {
+      console.log('User pressed End Call in notification shade');
+      handleDeclineCall();
+    }).then((sub) => {
+      nativeEndSub = sub;
+    });
+
+    // Create a background Web Audio API keep-alive node to keep audio processing thread running
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        audioCtxRef.current = ctx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0.0001; // silent keep-alive
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+      }
+    } catch (e) {
+      console.warn('AudioContext keep-alive notice:', e);
+    }
+
     // Listen for app minimize / background event to activate background audio keep-alive
     let appListener: Promise<any> | null = null;
     try {
       appListener = App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
           console.log('App moved to background, voice call background audio active');
+          if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {});
+          }
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.play().catch(() => {});
+          }
+          if (localStreamRef.current) {
+            localStreamRef.current.getAudioTracks().forEach((track) => {
+              if (!isMuted) track.enabled = true;
+            });
+          }
         }
       });
     } catch (e) {
@@ -271,19 +320,45 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
     return () => {
       KeepAwake.allowSleep().catch(() => {});
       stopVoiceForegroundService().catch(() => {});
+      if (nativeEndSub) {
+        nativeEndSub.remove?.();
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+      }
       if (appListener) {
         appListener.then((l: any) => l?.remove?.()).catch(() => {});
       }
     };
-  }, [otherPersonName]);
+  }, [otherPersonName, isMuted, callStatus]);
 
-  // Call duration timer when accepted
+  // Call duration timer when accepted - calculated accurately using callStartTimeRef timestamp
   useEffect(() => {
     let timer: any;
     if (callStatus === 'accepted') {
-      timer = setInterval(() => {
-        setDurationSec((prev) => prev + 1);
-      }, 1000);
+      if (!callStartTimeRef.current) {
+        callStartTimeRef.current = Date.now();
+      }
+
+      const updateDuration = () => {
+        if (callStartTimeRef.current) {
+          const elapsed = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+          setDurationSec(elapsed > 0 ? elapsed : 0);
+        }
+      };
+
+      updateDuration();
+      timer = setInterval(updateDuration, 1000);
+
+      // Re-evaluate immediately when returning to foreground from background/lockscreen
+      let appListener: Promise<any> | null = null;
+      try {
+        appListener = App.addListener('appStateChange', ({ isActive }) => {
+          if (isActive) {
+            updateDuration();
+          }
+        });
+      } catch (_) {}
 
       // Register MediaSession for Android system background audio keep-alive
       if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
@@ -299,15 +374,19 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ call, onEndCall 
           console.warn('MediaSession setup:', e);
         }
       }
+
+      return () => {
+        if (timer) clearInterval(timer);
+        if (appListener) {
+          appListener.then((l: any) => l?.remove?.()).catch(() => {});
+        }
+        if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+          try {
+            navigator.mediaSession.metadata = null;
+          } catch (_) {}
+        }
+      };
     }
-    return () => {
-      if (timer) clearInterval(timer);
-      if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-        try {
-          navigator.mediaSession.metadata = null;
-        } catch (_) {}
-      }
-    };
   }, [callStatus, otherPersonName]);
 
   const handleDeclineCall = async () => {

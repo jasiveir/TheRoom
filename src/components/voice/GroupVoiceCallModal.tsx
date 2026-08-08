@@ -3,7 +3,7 @@ import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Users, Activity, Shield, Minim
 import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, collection, addDoc, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { KeepAwake } from '@capacitor-community/keep-awake';
 import { App } from '@capacitor/app';
-import { startVoiceForegroundService, stopVoiceForegroundService } from '../../lib/voiceService';
+import { startVoiceForegroundService, stopVoiceForegroundService, onEndCallRequested } from '../../lib/voiceService';
 import { db } from '../../lib/firebase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -48,13 +48,36 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
 
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const candidateQueuesRef = useRef<Map<string, any[]>>(new Map());
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const callStartTimeRef = useRef<number>(Date.now());
 
-  // Call duration counter
+  // Call duration counter - calculated accurately using callStartTimeRef timestamp
   useEffect(() => {
-    const timer = setInterval(() => {
-      setDurationSec((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    const updateDuration = () => {
+      if (callStartTimeRef.current) {
+        const elapsed = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
+        setDurationSec(elapsed > 0 ? elapsed : 0);
+      }
+    };
+
+    updateDuration();
+    const timer = setInterval(updateDuration, 1000);
+
+    let appListener: Promise<any> | null = null;
+    try {
+      appListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) {
+          updateDuration();
+        }
+      });
+    } catch (_) {}
+
+    return () => {
+      clearInterval(timer);
+      if (appListener) {
+        appListener.then((l: any) => l?.remove?.()).catch(() => {});
+      }
+    };
   }, []);
 
   // Keep screen, CPU, microphone and native Android Foreground Service active during group voice call
@@ -62,7 +85,11 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     const keepScreenAwake = async () => {
       try {
         await KeepAwake.keepAwake();
-        await startVoiceForegroundService('TheRoom Group Call', 'Group call active (Microphone enabled)');
+        await startVoiceForegroundService(
+          'TheRoom — Group Call',
+          `Group call active in ${groupName}`,
+          callStartTimeRef.current
+        );
       } catch (e) {
         console.log('Group KeepAwake / Foreground service error:', e);
       }
@@ -70,11 +97,45 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
 
     keepScreenAwake();
 
+    // Listen for native "End Call" notification action press
+    let nativeEndSub: any = null;
+    onEndCallRequested(() => {
+      console.log('User pressed End Call in group call notification shade');
+      handleLeaveCall();
+    }).then((sub) => {
+      nativeEndSub = sub;
+    });
+
+    // Web Audio API silent node keep-alive
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioCtx) {
+        const ctx = new AudioCtx();
+        audioCtxRef.current = ctx;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        gain.gain.value = 0.0001;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+      }
+    } catch (e) {
+      console.warn('Group AudioContext keep-alive notice:', e);
+    }
+
     let appListener: Promise<any> | null = null;
     try {
       appListener = App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive) {
           console.log('App moved to background, group call background audio active');
+          if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
+            audioCtxRef.current.resume().catch(() => {});
+          }
+          if (localStream) {
+            localStream.getAudioTracks().forEach((track) => {
+              if (!isMuted) track.enabled = true;
+            });
+          }
         }
       });
     } catch (e) {
@@ -84,11 +145,17 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     return () => {
       KeepAwake.allowSleep().catch(() => {});
       stopVoiceForegroundService().catch(() => {});
+      if (nativeEndSub) {
+        nativeEndSub.remove?.();
+      }
+      if (audioCtxRef.current) {
+        audioCtxRef.current.close().catch(() => {});
+      }
       if (appListener) {
         appListener.then((l: any) => l?.remove?.()).catch(() => {});
       }
     };
-  }, []);
+  }, [groupName, isMuted, localStream]);
 
   // Format timer
   const formatTimer = (sec: number) => {
@@ -314,12 +381,8 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
 
   }, [participants, chatId, userProfile?.uid, localStream]);
 
-  // Active Call timer & MediaSession Keep-Alive
+  // MediaSession Keep-Alive
   useEffect(() => {
-    const timer = setInterval(() => {
-      setDurationSec((prev) => prev + 1);
-    }, 1000);
-
     if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
       try {
         navigator.mediaSession.metadata = new MediaMetadata({
@@ -335,7 +398,6 @@ export const GroupVoiceCallModal: React.FC<GroupVoiceCallModalProps> = ({
     }
 
     return () => {
-      clearInterval(timer);
       if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
         try {
           navigator.mediaSession.metadata = null;
